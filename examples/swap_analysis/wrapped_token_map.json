@@ -1,0 +1,32 @@
+{
+    "ethereum": {
+        "SOL": {
+            "token": "0xd31a59c85ae9d8edefec411d448f90841571b89c",
+            "pools": {
+                "uniswap-v3": {
+                    "ETH/whSOL": "0x127452f3f9cdc0389b0bf59ce6131aa3bd763598"
+                },
+                "sushiswap": {
+
+                }
+            }
+        },
+        "USDC": {
+            "token": "0x41f7b8b9b897276b7aae926a9016935280b44e97",
+            "pools": {
+                "uniswap-v3": {
+                    "whUSDC/USDC": "0x537a0a5654045c52ec45c4c86ed0c1ffe893809d"
+                }
+            }
+        }
+    },
+    "solana": {
+
+    },
+    "terra": {
+
+    },
+    "bsc": {
+
+    }
+}
