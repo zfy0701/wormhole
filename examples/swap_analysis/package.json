@@ -2,10 +2,10 @@
   "name": "swap_analysis",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "quote.js",
   "scripts": {
-    "build": "tsc --watch --resolveJsonModule index.ts",
-    "test": "node index.js"
+    "build": "tsc --watch --resolveJsonModule quote.ts",
+    "test": "node quote.js"
   },
   "author": "",
   "devDependencies": {
