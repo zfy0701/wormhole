@@ -1,10 +1,7 @@
 import { ethers } from "ethers";
-import { Pool } from "@uniswap/v3-sdk";
-import { CurrencyAmount, Token, TradeType } from "@uniswap/sdk-core";
+import { Token } from "@uniswap/sdk-core";
+import { FeeAmount, Pool } from "@uniswap/v3-sdk";
 import { abi as IUniswapV3PoolABI } from "@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json";
-import { Route, Trade } from "@uniswap/v3-sdk";
-import { abi as QuoterABI } from "@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json";
-
 
 import { makeErc20Contract } from "../erc20";
 import { mainnetProvider } from "../metamask"
@@ -26,7 +23,7 @@ export function makeMainnetPoolContract(poolAddress: string): ethers.Contract {
 // TODO: create UniswapToken object
 export async function makeToken(tokenAddress: string): Promise<Token> {
   const erc20 = await makeErc20Contract(mainnetProvider, tokenAddress);
-  
+
   const decimals = await erc20.decimals();
   const symbol = await erc20.symbol();
   const name = await erc20.name();
@@ -99,4 +96,52 @@ export async function getPoolState(poolContract: ethers.Contract) {
   };
 
   return PoolState;
+}
+
+
+export class UniswapV3PoolProducer {
+  poolContract: ethers.Contract;
+  immutables: Immutables;
+  state: State;
+  public tokenA: Token;
+  public tokenB: Token;
+  public fee: FeeAmount;
+
+
+  constructor() {
+    // :D
+  }
+
+
+  async initialize(poolAddress: string) {
+    this.poolContract = makeMainnetPoolContract(poolAddress);
+
+    const poolContract = this.poolContract;
+    this.immutables = await getPoolImmutables(poolContract);
+    this.state = await getPoolState(poolContract);
+
+    this.tokenA = await makeToken(this.immutables.token0);
+    this.tokenB = await makeToken(this.immutables.token1);
+    this.fee = this.immutables.fee;
+  }
+
+
+  makePool(): Pool {
+    return new Pool(
+      this.tokenA,
+      this.tokenB,
+      this.fee,
+      this.state.sqrtPriceX96.toString(), //note the description discrepancy - sqrtPriceX96 and sqrtRatioX96 are interchangable values
+      this.state.liquidity.toString(),
+      this.state.tick
+    );
+  }
+
+
+  static async create(poolAddress: string): Promise<UniswapV3PoolProducer> {
+    const o = new UniswapV3PoolProducer();
+    await o.initialize(poolAddress);
+    return o;
+  }
+
 }

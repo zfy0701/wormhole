@@ -4,8 +4,7 @@
   "description": "",
   "main": "quote.js",
   "scripts": {
-    "build": "tsc --watch --resolveJsonModule quote.ts",
-    "test": "node quote.js"
+    "build": "tsc"
   },
   "author": "",
   "devDependencies": {
@@ -15,6 +14,7 @@
     "tslib": "^2.3.1"
   },
   "dependencies": {
+    "commander": "^3.0.2",
     "ethers": "^5.5.1",
     "i": "^0.3.7",
     "ts-node": "^10.4.0",
