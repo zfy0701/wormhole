@@ -22,6 +22,7 @@ eval "$(pyenv virtualenv-init -)"
 ```
 Source your bashrc and install your global and local Python virtual environments. We currently use 3.9.9. **Run everything in the swap_analysis directory.**
 ```bash
+. ~/.bashrc
 pyenv install 3.9.9
 pyenv global 3.9.9
 pyenv virtualenv swap-analysis
