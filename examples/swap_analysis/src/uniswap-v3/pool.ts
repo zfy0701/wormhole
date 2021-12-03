@@ -107,11 +107,9 @@ export class UniswapV3PoolProducer {
   public tokenB: Token;
   public fee: FeeAmount;
 
-
   constructor() {
     // :D
   }
-
 
   async initialize(poolAddress: string) {
     this.poolContract = makeMainnetPoolContract(poolAddress);
@@ -125,7 +123,6 @@ export class UniswapV3PoolProducer {
     this.fee = this.immutables.fee;
   }
 
-
   makePool(): Pool {
     return new Pool(
       this.tokenA,
@@ -137,6 +134,9 @@ export class UniswapV3PoolProducer {
     );
   }
 
+  getLpState(): State {
+    return this.state;
+  }
 
   static async create(poolAddress: string): Promise<UniswapV3PoolProducer> {
     const o = new UniswapV3PoolProducer();

@@ -4,7 +4,7 @@ import { Route, Trade } from '@uniswap/v3-sdk';
 import { CurrencyAmount, Token, TradeType } from '@uniswap/sdk-core';
 
 import { mainnetProvider } from '../metamask';
-import { UniswapV3PoolProducer } from '../uniswap-v3/pool';
+import { State, UniswapV3PoolProducer } from '../uniswap-v3/pool';
 
 
 const QUOTER_ADDRESS = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6';
@@ -35,32 +35,54 @@ export class UniswapV3PoolQuoter {
         return o;
     }
 
+    getLpState(): State {
+        return this.pool.getLpState();
+    }
 
     getTokenA(): Token {
         return this.pool.tokenA;
     }
 
-
     getTokenB(): Token {
         return this.pool.tokenB;
     }
 
-
-    determineTokenInAndOut(token: Token): Token[] {
+    getTokenLegIndex(tokenAddress: string): number {
         const tokenA = this.getTokenA();
         const tokenB = this.getTokenB();
 
-        if (tokenA.address == token.address) {
+        if (tokenA.address == tokenAddress) {
+            return 0;
+        } else if (tokenB.address == tokenAddress) {
+            return 1;
+        } else {
+            throw new Error('invalid token address');
+        }
+    }
+
+    getToken(tokenAddress: string): Token {
+        if (this.getTokenLegIndex(tokenAddress) === 0) {
+            return this.getTokenA();
+        } else {
+            return this.getTokenB();
+        }
+    }
+
+    determineTokenInAndOut(tokenInAddress: string): Token[] {
+        const tokenA = this.getTokenA();
+        const tokenB = this.getTokenB();
+
+        if (this.getTokenLegIndex(tokenInAddress) === 0) {
             return [tokenA, tokenB];
         } else {
             return [tokenB, tokenA];
         }
     }
 
-    async computeAmountOut(token: Token, amount: number): Promise<number> {
+    async computeAmountOut(tokenInAddress: string, amount: number): Promise<number> {
         const pool = this.pool;
 
-        const [tokenIn, tokenOut] = this.determineTokenInAndOut(token);
+        const [tokenIn, tokenOut] = this.determineTokenInAndOut(tokenInAddress);
 
         const amountIn = amount * 10 ** tokenIn.decimals;
 
@@ -79,7 +101,7 @@ export class UniswapV3PoolQuoter {
         // create an unchecked trade instance
         const quote = await Trade.createUncheckedTrade({
             route: swapRoute,
-            inputAmount: CurrencyAmount.fromRawAmount(token, amountIn.toString()),
+            inputAmount: CurrencyAmount.fromRawAmount(tokenIn, amountIn.toString()),
             outputAmount: CurrencyAmount.fromRawAmount(
                 tokenOut,
                 quotedAmountOut.toString()
