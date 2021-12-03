@@ -48,12 +48,13 @@ export class UniswapV3PoolQuoter {
     }
 
     getTokenLegIndex(tokenAddress: string): number {
-        const tokenA = this.getTokenA();
-        const tokenB = this.getTokenB();
+        const tokenA = this.getTokenA().address.toLowerCase();
+        const tokenB = this.getTokenB().address.toLowerCase();
 
-        if (tokenA.address == tokenAddress) {
+        const token = tokenAddress.toLowerCase();
+        if (tokenA === token) {
             return 0;
-        } else if (tokenB.address == tokenAddress) {
+        } else if (tokenB === token) {
             return 1;
         } else {
             throw new Error('invalid token address');
