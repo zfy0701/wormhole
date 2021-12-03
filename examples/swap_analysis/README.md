@@ -1,5 +1,11 @@
 # Swap Analysis
 
+## Initial setup
+
+```bash
+npm i
+```
+
 ## uniswap-v3-quoter.js
 
 A script that computes the price slippage in percentage terms for any Uniswap V3 AMM.
