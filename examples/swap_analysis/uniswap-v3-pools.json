@@ -15,13 +15,13 @@
         {
             "poolAddress": "0x127452f3f9cdc0389b0bf59ce6131aa3bd763598", 
             "label": "ETH / wSOL (sol)",
-            "wormholeTokenAddress": "",
+            "wormholeTokenAddress": "0xd31a59c85ae9d8edefec411d448f90841571b89c",
             "slippageTrialAmounts": "100,1000"
         },
         {
             "poolAddress": "0xf93d138e087b454b4051496346bcc61e4f8f99d4", 
             "label": "Luna (wormhole) (sol) / ETH",
-            "wormholeTokenAddress": "0xd31a59c85ae9d8edefec411d448f90841571b89c",
+            "wormholeTokenAddress": "0xbd31ea8212119f94a611fa969881cba3ea06fa3d",
             "slippageTrialAmounts": "100,1000"
         },
         {
