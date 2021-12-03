@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import yargs from 'yargs';
-//const { hideBin } = require('yargs/helpers')
 
 import { UniswapV3PoolQuoter } from './src/uniswap-v3/quote'
 
@@ -24,17 +23,7 @@ async function main() {
   const poolAddress = argv['p'];
   console.log('poolAddress=' + poolAddress);
 
-  // USDC-WETH pool address on mainnet for fee tier 0.05%
-  //const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640';
-
-  // ETH/whSOL
-  //const poolAddress = "0x127452f3f9cdc0389b0bf59ce6131aa3bd763598";
-
-  // USDC swap
-  //const poolAddress = "0x537a0a5654045c52ec45c4c86ed0c1ffe893809d";
-
   const quoter = await UniswapV3PoolQuoter.create(poolAddress);
-
   console.log('tokenA=' + quoter.getTokenA().address);
   console.log('tokenB=' + quoter.getTokenB().address);
 
@@ -83,8 +72,6 @@ async function main() {
       console.log('slippageTrialPercentage=' + trialPct.toFixed(2) + '%');
     }
   }
-  return;
-
   return;
 }
 
