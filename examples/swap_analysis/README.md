@@ -4,6 +4,7 @@
 
 ```bash
 npm i
+npm run build
 ```
 
 ## uniswap-v3-quoter.js
