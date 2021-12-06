@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { ethers } from 'ethers';
 import yargs from 'yargs';
 
-import { BASE_AMOUNT_TINY, UniswapV3PoolQuoter } from './src/uniswap-v3/quote'
+import { UniswapV3PoolQuoter } from './src/ethereum/uniswap-v3/quote'
 
 
 async function main() {
@@ -21,6 +20,8 @@ async function main() {
 
 
   // begin printing output
+  console.log('protocol=UniswapV3');
+
   const poolAddress = argv['p'];
   console.log('poolAddress=' + poolAddress);
 
@@ -45,8 +46,6 @@ async function main() {
 
   const baseResult = await quoter.computeAmountOut(tokenInAddress, baseAmountIn);
   console.log('amountOut=' + baseResult.qty);
-
-  //const basePrice = baseAmountIn.divUnsafe(amountOut);
   console.log('basePrice=' + baseResult.price);
 
   // and slippages

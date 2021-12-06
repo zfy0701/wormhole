@@ -3,14 +3,11 @@ import { abi as QuoterABI } from '@uniswap/v3-periphery/artifacts/contracts/lens
 import { Route, Trade } from '@uniswap/v3-sdk';
 import { CurrencyAmount, Token, TradeType } from '@uniswap/sdk-core';
 
-import { mainnetProvider } from '../metamask';
-import { State, UniswapV3PoolProducer } from '../uniswap-v3/pool';
+import { mainnetProvider } from '../misc';
+import { State, UniswapV3PoolProducer } from './pool';
 
 
 const QUOTER_ADDRESS = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6';
-
-
-export const BASE_AMOUNT_TINY = ethers.FixedNumber.from('0.0001');
 
 
 export function makeMainnetQuoterContract() {
@@ -136,7 +133,7 @@ export class UniswapV3PoolQuoter {
 
         const result: QuotedPriceQty = {
             price: Number(fixedPrice.toString()),
-            qty: Number(fixedPrice.toString())
+            qty: Number(fixedQty.toString())
         };
         return result;
     }

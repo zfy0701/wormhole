@@ -4,10 +4,7 @@ import { FeeAmount, Pool } from '@uniswap/v3-sdk';
 import { abi as IUniswapV3PoolABI } from '@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json';
 
 import { makeErc20Contract } from '../erc20';
-import { mainnetProvider } from '../metamask';
-
-
-const ETHEREUM_CHAIN_ID = 3;
+import { CHAIN_ID, mainnetProvider } from '../misc';
 
 
 export function makePoolContract(provider: ethers.providers.JsonRpcProvider, poolAddress: string): ethers.Contract {
@@ -28,7 +25,7 @@ export async function makeToken(tokenAddress: string): Promise<Token> {
   const symbol = await erc20.symbol();
   const name = await erc20.name();
 
-  return new Token(ETHEREUM_CHAIN_ID, tokenAddress, decimals, symbol, name);
+  return new Token(CHAIN_ID, tokenAddress, decimals, symbol, name);
 }
 
 
