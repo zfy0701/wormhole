@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { ethers } from 'ethers';
 import yargs from 'yargs';
 
-import { UniswapV3PoolQuoter } from './src/uniswap-v3/quote'
+import { BASE_AMOUNT_TINY, UniswapV3PoolQuoter } from './src/uniswap-v3/quote'
 
 
 async function main() {
@@ -39,36 +40,29 @@ async function main() {
   //const tokenIn = quoter.getToken(tokenInAddress);
   console.log('tokenInAddress=' + tokenInAddress);
 
-  const baseAmountIn = 0.0001;
-  console.log('baseAmountIn=' + baseAmountIn.toFixed(8));
+  const baseAmountIn = '1';
+  console.log('baseAmountIn=' + baseAmountIn.toString());
 
-  const amountOut = await quoter.computeAmountOut(tokenInAddress, baseAmountIn);
-  console.log('amountOut=' + amountOut.toFixed(8));
+  const baseResult = await quoter.computeAmountOut(tokenInAddress, baseAmountIn);
+  console.log('amountOut=' + baseResult.qty);
 
-  const basePrice = baseAmountIn / amountOut;
-  console.log('basePrice=' + basePrice.toFixed(8));
+  //const basePrice = baseAmountIn.divUnsafe(amountOut);
+  console.log('basePrice=' + baseResult.price);
 
   // and slippages
   const slippagesArg = argv['s'];
   if (slippagesArg !== undefined) {
-    const slippageAmounts = slippagesArg
-      .split(',')
-      .map((item) => {
-        return Number(item);
-      }
-    );
+    const slippageAmounts = slippagesArg.split(',');
     
     console.log('numSlippageTrials=' + slippageAmounts.length);
     for (const trialAmountIn of slippageAmounts) {
-      console.log('slippageTrialAmountIn=' + trialAmountIn.toFixed(8));
+      console.log('slippageTrialAmountIn=' + trialAmountIn);
 
-      const trialAmountOut = await quoter.computeAmountOut(tokenInAddress, trialAmountIn);
-      console.log('slippageTrialAmountOut=' + trialAmountOut.toFixed(8));
+      const trialResult = await quoter.computeAmountOut(tokenInAddress, trialAmountIn);
+      console.log('slippageTrialAmountOut=' + trialResult.qty);
+      console.log('slippageTrialPrice=' + trialResult.price);
 
-      const trialPrice = trialAmountIn / trialAmountOut;
-      console.log('slippageTrialPrice=' + trialPrice.toFixed(8));
-
-      const trialPct = 100 * (trialPrice / basePrice - 1);
+      const trialPct = 100 * (trialResult.price / baseResult.price - 1);
       console.log('slippageTrialPercentage=' + trialPct.toFixed(2) + '%');
     }
   }

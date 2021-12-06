@@ -10,8 +10,17 @@ import { State, UniswapV3PoolProducer } from '../uniswap-v3/pool';
 const QUOTER_ADDRESS = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6';
 
 
+export const BASE_AMOUNT_TINY = ethers.FixedNumber.from('0.0001');
+
+
 export function makeMainnetQuoterContract() {
     return new ethers.Contract(QUOTER_ADDRESS, QuoterABI, mainnetProvider);
+}
+
+
+export interface QuotedPriceQty {
+    price: number;
+    qty: number;
 }
 
 
@@ -80,19 +89,31 @@ export class UniswapV3PoolQuoter {
         }
     }
 
-    async computeAmountOut(tokenInAddress: string, amount: number): Promise<number> {
+    async computeAmountOut(tokenInAddress: string, amount: string): Promise<QuotedPriceQty> {
+        const fixedAmount = ethers.FixedNumber.from(amount);
+
         const pool = this.pool;
 
         const [tokenIn, tokenOut] = this.determineTokenInAndOut(tokenInAddress);
 
-        const amountIn = amount * 10 ** tokenIn.decimals;
+        const multiplier = ethers.FixedNumber.from(
+            ethers.BigNumber.from('10').pow(tokenIn.decimals).toString()
+        );
+        const amountInAttempt = fixedAmount.mulUnsafe(multiplier).toString();
+
+        // hack to intify a large fixed number. brace yourselves
+        if (!amountInAttempt.endsWith('.0')) {
+            throw new Error('number not big enough?');
+        }
+
+        const amountIn = amountInAttempt.slice(0, -2);
 
         // call the quoter contract to determine the amount out of a swap, given an amount in
         const quotedAmountOut = await this.quoterContract.callStatic.quoteExactInputSingle(
             tokenIn.address,
             tokenOut.address,
             pool.fee,
-            amountIn.toString(),
+            amountIn,
             0
         );
 
@@ -110,7 +131,14 @@ export class UniswapV3PoolQuoter {
             tradeType: TradeType.EXACT_INPUT,
         });
 
-        return Number(quote.outputAmount.toSignificant(12));
+        const fixedQty = ethers.FixedNumber.from(quote.outputAmount.toSignificant(12));
+        const fixedPrice = fixedAmount.divUnsafe(fixedQty);
+
+        const result: QuotedPriceQty = {
+            price: Number(fixedPrice.toString()),
+            qty: Number(fixedPrice.toString())
+        };
+        return result;
     }
 
 }
