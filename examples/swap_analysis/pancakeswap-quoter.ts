@@ -22,6 +22,7 @@ async function main() {
 
     // begin printing output
     console.log('protocol=PancakeSwap');
+    console.log('network=bschain');
 
     //const poolAddress = '0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16';
     const poolAddress = argv['p'];
@@ -46,7 +47,7 @@ async function main() {
     const baseResult = await quoter.computeAmountOut(tokenInAddress, baseAmountIn);
     console.log('amountOut=' + baseResult.qty);
     console.log('basePrice=' + baseResult.price);
-    
+
     // and slippages
     const slippagesArg = argv['s'];
     if (slippagesArg !== undefined) {

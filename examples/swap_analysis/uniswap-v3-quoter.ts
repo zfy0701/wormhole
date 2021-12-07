@@ -21,6 +21,7 @@ async function main() {
 
   // begin printing output
   console.log('protocol=UniswapV3');
+  console.log('network=ethereum');
 
   const poolAddress = argv['p'];
   console.log('poolAddress=' + poolAddress);
