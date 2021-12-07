@@ -30,6 +30,11 @@ pyenv local swap-analysis
 ```
 You should see your terminal output prepend **(swap-analysis)**. When you navigate away from this directory, you will automatically leave this virtual environment.
 
+Run the following command to download necessary Python dependencies.
+```bash
+pip install -r requirements.txt
+```
+
 ## Quoter Scripts
 
 Scripts that compute the price slippage in percentage terms for any AMM pool in Ethereum or EVM.
@@ -72,3 +77,31 @@ slippageTrialPercentage=2.88%
 * **-p** is required. Pool/Pair Address.
 * **-i** is required. This is the inbound token used (swapping out of) in AMM.
 * **-s** is optional. Quantities of inbound token used to test price slippage.
+
+
+## Data Fetching Script
+
+A script that pulls TVL and volume data. Also calls the Quoter scripts and merges the two data streams 
+before pushing to Bigtable. 
+* fetch_data.py
+
+### Example Usage
+
+```bash
+python fetch_data.py --cfg query-cfg.json --exchange uniswap
+```
+
+### Arguments
+
+* **-cfg** is required. Config with graphQL query/endpoint info.
+* **--exchange** is required. This is the name of the AMM that the script queries data from. All exchange names are found in the in following file.
+```bash
+query-cfg.json
+```
+
+### Pool Mappings
+
+A JSON file containing pool_ids and wormhole token mappings is required for all AMMs. The files 
+can be found in the following directory.
+
+* pool_info
