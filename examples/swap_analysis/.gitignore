@@ -1,8 +1,7 @@
 .python-version
 node_modules
 package-lock.json
-src/erc20.js
-src/metamask.js
-src/uniswap-v3/pool.js
-src/uniswap-v3/quote.js
+src/ethereum/**/*.js
+src/bschain/**/*.js
 uniswap-v3-quoter.js
+pancakeswap-quoter.js

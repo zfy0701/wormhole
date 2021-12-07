@@ -3,6 +3,7 @@
         "resolveJsonModule": true
     },
     "files": [
-        "uniswap-v3-quoter.ts"
+        "uniswap-v3-quoter.ts",
+        "pancakeswap-quoter.ts"
     ]
 }
