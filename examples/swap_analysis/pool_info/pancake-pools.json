@@ -1,0 +1,66 @@
+{
+    "pools": [
+        {
+            "poolAddress": "0x06ce8ef153b2a9eb0fef3aeb3ce1fcafa90df9f3", 
+            "label": "wsUSDC (sol) / BUSD",
+            "wormholeTokenAddress": "0x91ca579b0d47e5cfd5d0862c21d5659d39c8ecf0",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0xa55b5c9864f21df5be7890a7c5e848210e163622",
+            "label": "wsUSDT (sol) / BUSD",
+            "wormholeTokenAddress": "0x49d5cc521f75e13fa8eb4e89e9d381352c897c96",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0xead15c55ce90a6eb6b1c3362c0b959a166c2eac0", 
+            "label": "wSOL (sol) / BUSD",
+            "wormholeTokenAddress": "0xfa54ff1a158b5189ebba6ae130ced6bbd3aea76e",
+            "slippageTrialAmounts": "100,1000"
+        },
+        {
+            "poolAddress": "0x9af3528989c6b2e2d881996f5fc09d5277cfc373", 
+            "label": "wsUSDC (matic) / BUSD",
+            "wormholeTokenAddress": "0x672147dd47674757c457eb155baa382cc10705dd",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0xfe76f3b2161103a59b92a0f9ffdae7cadc2a6d8c",
+            "label": "wMATIC (matic) / BUSD",
+            "wormholeTokenAddress": "0xc836d8dc361e44dbe64c4862d55ba041f88ddd39",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0xa0d6d7ee26215d00291d51510040becb9ebb9c4b", 
+            "label": "weUSDC (eth) / BUSD",
+            "wormholeTokenAddress": "0xb04906e95ab5d797ada81508115611fee694c2b3",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0x1803e3aa778bf3b1347dec44e01ea59323b469a2", 
+            "label": "weUSDT (eth) / BUSD",
+            "wormholeTokenAddress": "0x524bc91dc82d6b90ef29f76a3ecaabafffd490bc",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0xd5f81b5b84ea7b5157a72d3fe32154df8efc8b01", 
+            "label": "weETH (eth) / BNB",
+            "wormholeTokenAddress": "0x4db5a66e937a9f4473fa95b1caf1d1e1d62e29ea",
+            "slippageTrialAmounts": "100,1000"
+        },
+        {
+            "poolAddress": "0x4d7ae663aab55bc165dd5b3967677a0574e25d5d", 
+            "label": "wUST (terra) / BUSD",
+            "wormholeTokenAddress": "0x3d4350cd54aef9f9b2c29435e0fa809957b3f30a",
+            "slippageTrialAmounts": "20000,200000",
+            "comment": "should probably remove liquidity"
+        },
+        {
+            "poolAddress": "0x0f8e31ce605f225c336dead35304d649ae8fad04", 
+            "label": "wLUNA (terra) / BUSD",
+            "wormholeTokenAddress": "0x156ab3346823b651294766e23e6cf87254d68962",
+            "slippageTrialAmounts": "100,1000"
+        }
+    ],
+    "info": "https://pancakeswap.finance/info/pools/"
+}

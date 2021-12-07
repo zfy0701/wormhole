@@ -1,0 +1,72 @@
+{
+    "pools": [
+        {
+            "poolAddress": "0x537a0a5654045c52ec45c4c86ed0c1ffe893809d", 
+            "label": "wsUSDC (sol) / USDC",
+            "wormholeTokenAddress": "0x41f7b8b9b897276b7aae926a9016935280b44e97",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0xe1d74c16203f87644584a1ad3ac34c4f1e8f7e1e",
+            "label": "wsUSDT (sol) / USDC",
+            "wormholeTokenAddress": "0x1cdd2eab61112697626f7b4bb0e23da4febf7b7c",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0x127452f3f9cdc0389b0bf59ce6131aa3bd763598", 
+            "label": "ETH / wSOL (sol)",
+            "wormholeTokenAddress": "0xd31a59c85ae9d8edefec411d448f90841571b89c",
+            "slippageTrialAmounts": "100,1000"
+        },
+        {
+            "poolAddress": "0xf93d138e087b454b4051496346bcc61e4f8f99d4", 
+            "label": "Luna (wormhole) (sol) / ETH",
+            "wormholeTokenAddress": "0xbd31ea8212119f94a611fa969881cba3ea06fa3d",
+            "slippageTrialAmounts": "100,1000"
+        },
+        {
+            "poolAddress": "0xba8080b0b09181e09bca0612b22b9475d8171055",
+            "label": "wBNB (worhole) (bsc) / ETH",
+            "wormholeTokenAddress": "0x418d75f65a02b3d53b2418fb8e1fe493759c7605",
+            "slippageTrialAmounts": "100,1000"
+        },
+        {
+            "poolAddress": "0x275100747bbaac268ee70229687e96975aa742a6", 
+            "label": "wpMATIC (matic) / ETH",
+            "wormholeTokenAddress": "0x7c9f4c87d911613fe9ca58b579f737911aad2d43",
+            "slippageTrialAmounts": "100,1000"
+        },
+        {
+            "poolAddress": "0xd376814cd28dcb6f30553e5026708ec9d6b9a8dc", 
+            "label": "wpUSDC (matic) / USDC",
+            "wormholeTokenAddress": "0x566957ef80f9fd5526cd2bef8be67035c0b81130",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0x12d6867fa648d269835cf69b49f125147754b54d", 
+            "label": "USDC / wUST (wormhole)",
+            "wormholeTokenAddress": "0xa693b19d2931d498c5b318df961919bb4aee87a5",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0x7a5ae802895d5f90b6edbafc870fd348fba2a3d2", 
+            "label": "wUST (wormhole) / ETH",
+            "wormholeTokenAddress": "0xa693b19d2931d498c5b318df961919bb4aee87a5",
+            "slippageTrialAmounts": "20000,200000",
+            "comment": "should probably remove liquidity"
+        },
+        {
+            "poolAddress": "0xa87b2ff0759f5b82c7ec86444a70f25c6bffccbf", 
+            "label": "USDC / wUST (wormhole)",
+            "wormholeTokenAddress": "0xa693b19d2931d498c5b318df961919bb4aee87a5",
+            "slippageTrialAmounts": "20000,200000"
+        },
+        {
+            "poolAddress": "0x4c5a09804fd6223b66b767fbdaece2249ef51a1e",
+            "label": "wBTC / wUST (wormhole)",
+            "wormholeTokenAddress": "0xa693b19d2931d498c5b318df961919bb4aee87a5",
+            "slippageTrialAmounts": "20000,200000"
+        }
+    ],
+    "info": "https://info.uniswap.org/#/pools/"
+}

@@ -1,0 +1,32 @@
+{
+    "uniswap": {
+	    "endPoint": "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3", 
+            "statsScript": "uniswap-v3-quoter.js",
+    	    "poolCFG": "pool_info/uniswap-v3-pools.json",
+	    "headers": {},
+    	    "queryType": "poolDayDatas",
+    	    "dailyQuery": "{poolDayDatas(orderBy: date, orderDirection: desc, first: 1, where: {pool: %s}){\ndate\nvolumeUSD\ntvlUSD}}",
+	    "fieldNameMap": {},
+	    "dataType": "0"
+    },
+    "pancakeswap": {
+	    "endPoint": "https://bsc.streamingfast.io/subgraphs/name/pancakeswap/exchange-v2",
+	    "statsScript": "pancakeswap-quoter.js",
+	    "poolCFG": "pool_info/pancake-pools.json",
+	    "headers": {"origin": "https://pancakeswap.finance", "referer": "https://pancakeswap.finance/"},
+	    "queryType": "pairDayDatas",
+	    "dailyQuery": "{pairDayDatas(first: 1 skip: 0 where: {pairAddress: %s} orderBy: date orderDirection: desc) {\ndate\ndailyVolumeUSD\nreserveUSD}}",
+	    "fieldNameMap": {"reserveUSD":"tvlUSD", "dailyVolumeUSD":"volumeUSD"},
+	    "dataType": "0"
+    },
+    "quickswap": {
+	    "endPoint": "https://polygon.furadao.org/subgraphs/name/quickswap",
+	    "statsScript": " ",
+	    "poolCFG": "pool_info/quickswap-pools.json",
+	    "headers": {},
+	    "queryType": "pairDayDatas",
+	    "dailyQuery": "{pairDayDatas(first: 1, skip: 0, orderBy: date, orderDirection: desc, where: {pairAddress: %s}) {\ndate\ndailyVolumeUSD\nreserveUSD}}",
+	    "fieldNameMap": {"reserveUSD":"tvlUSD", "dailyVolumeUSD":"volumeUSD"},
+	    "dataType": "0"
+    }	
+}
