@@ -30,16 +30,20 @@ pyenv local swap-analysis
 ```
 You should see your terminal output prepend **(swap-analysis)**. When you navigate away from this directory, you will automatically leave this virtual environment.
 
-## uniswap-v3-quoter.js
+## Quoter Scripts
 
-A script that computes the price slippage in percentage terms for any Uniswap V3 AMM.
+Scripts that compute the price slippage in percentage terms for any AMM pool in Ethereum or EVM.
+* uniswap-v3-quoter.js
+* pancakeswap-quoter.js
+
+These are built when you call ```npm run build```.
 
 ### Example Usage
 
 ```bash
-./uniswap-v3-quoter.js -p 0x127452f3f9cdc0389b0bf59ce6131aa3bd763598 -i 0xD31a59c85aE9D8edEFeC411D448f90841571b89c -s 100,1000
+node uniswap-v3-quoter.js -p 0x127452f3f9cdc0389b0bf59ce6131aa3bd763598 -i 0xD31a59c85aE9D8edEFeC411D448f90841571b89c -s 100,1000
 ```
-This is testing the ETH/SOL pool (0x127452f3f9cdc0389b0bf59ce6131aa3bd763598), swapping SOL (0xD31a59c85aE9D8edEFeC411D448f90841571b89c) for ETH with trial quantities 100 SOL and 1000 SOL. Calculations are generated to stdout.
+This is testing the ETH/SOL Uniswap V3 AMM pool (0x127452f3f9cdc0389b0bf59ce6131aa3bd763598), swapping SOL (0xD31a59c85aE9D8edEFeC411D448f90841571b89c) for ETH with trial quantities 100 SOL and 1000 SOL. Calculations are generated to stdout.
 
 ```
 poolAddress=0x127452f3f9cdc0389b0bf59ce6131aa3bd763598
@@ -65,6 +69,6 @@ slippageTrialPercentage=2.88%
 
 ### Arguments
 
-* **-p** is required. Uniswap V3 Pool Address.
+* **-p** is required. Pool/Pair Address.
 * **-i** is required. This is the inbound token used (swapping out of) in AMM.
 * **-s** is optional. Quantities of inbound token used to test price slippage.
