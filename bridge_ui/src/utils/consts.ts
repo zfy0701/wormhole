@@ -14,6 +14,7 @@ import ethIcon from "../icons/eth.svg";
 import polygonIcon from "../icons/polygon.svg";
 import solanaIcon from "../icons/solana.svg";
 import terraIcon from "../icons/terra.svg";
+import oasisIcon from "../icons/oasis-network-rose-logo.svg";
 
 export type Cluster = "devnet" | "testnet" | "mainnet";
 export const CLUSTER: Cluster =
@@ -125,6 +126,14 @@ export const CHAINS_BY_ID: ChainsById = CHAINS.reduce((obj, chain) => {
   obj[chain.id] = chain;
   return obj;
 }, {} as ChainsById);
+
+export const COMING_SOON_CHAINS = [
+  {
+    id: 0,
+    name: "Oasis",
+    logo: oasisIcon,
+  },
+];
 export const getDefaultNativeCurrencySymbol = (chainId: ChainId) =>
   chainId === CHAIN_ID_SOLANA
     ? "SOL"
@@ -277,7 +286,7 @@ export const SOL_NFT_BRIDGE_ADDRESS =
   CLUSTER === "mainnet"
     ? "WnFt12ZrnzZrFZkt2xsNsaNWoQribnuQ5B5FrDbwDhD"
     : CLUSTER === "testnet"
-    ? "DjAK1Bo9UuPjLbHc12chy1MRx2AJrowiy7Bw1RhB3SGh"
+    ? "2rHhojZ7hpu1zA91nvZmT8TqWWvMcKmmNBCr2mKTtMq4"
     : "NFTWqJR8YnRVqPDvTJrYuLrQDitTG5AScqbeghi4zSA";
 export const SOL_TOKEN_BRIDGE_ADDRESS =
   CLUSTER === "mainnet"
@@ -636,6 +645,11 @@ export const BSC_MIGRATION_ASSET_MAP = new Map<string, string>(
           getAddress("0x23396cF899Ca06c4472205fC903bDB4de249D6fC"),
           getAddress("0x0F98AB919D04a291838B3b075c57181057D4CF75"),
         ],
+        [
+          // ORION
+          getAddress("0x5530ec23f4ee1521182bd158c09f4ca7efec1ef0"),
+          getAddress("0x084fa354e65b521e6fb9d1602549cf8693cdb4f8"),
+        ],
       ]
     : CLUSTER === "testnet"
     ? []
@@ -728,3 +742,10 @@ export const AVAILABLE_MARKETS_URL =
 export const SOLANA_SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111";
 export const FEATURED_MARKETS_JSON_URL =
   "https://raw.githubusercontent.com/certusone/wormhole-token-list/main/src/markets.json";
+
+export const logoOverrides = new Map<string, string>([
+  [
+    "0x727f064a78dc734d33eec18d5370aef32ffd46e4",
+    "https://orion.money/assets/ORION-LOGO-2.1-GREEN@256x256.png",
+  ],
+]);

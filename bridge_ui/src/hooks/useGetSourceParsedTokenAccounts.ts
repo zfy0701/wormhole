@@ -10,7 +10,7 @@ import {
   WSOL_ADDRESS,
   WSOL_DECIMALS,
 } from "@certusone/wormhole-sdk";
-import { ethers } from "@certusone/wormhole-sdk/node_modules/ethers";
+import { ethers } from "ethers";
 import { Dispatch } from "@reduxjs/toolkit";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
@@ -57,6 +57,7 @@ import {
 } from "../store/transferSlice";
 import {
   COVALENT_GET_TOKENS_URL,
+  logoOverrides,
   ROPSTEN_WETH_ADDRESS,
   ROPSTEN_WETH_DECIMALS,
   SOLANA_HOST,
@@ -167,7 +168,7 @@ const createParsedTokenAccountFromCovalent = (
     uiAmountString: formatUnits(covalent.balance, covalent.contract_decimals),
     symbol: covalent.contract_ticker_symbol,
     name: covalent.contract_name,
-    logo: covalent.logo_url,
+    logo: logoOverrides.get(covalent.contract_address) || covalent.logo_url,
   };
 };
 
