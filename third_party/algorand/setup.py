@@ -18,7 +18,7 @@ import pprint
 
 # Q5XDfcbiqiBwfMlY3gO1Mb0vyNCO+szD3v9azhrG16iO5Z5aTduNzeut/FLG0NOG0+txrBGN6lhi5iwytgkyKg==
 
-# position atom discover cluster fiction amused toe siren slam author surround spread garage craft isolate whisper kangaroo kitchen lend toss culture various effort absent kidney
+# assault approve result rare float sugar power float soul kind galaxy edit unusual pretty tone tilt net range pelican avoid unhappy amused recycle abstract master
 
 class Account:
     """Represents a private key and address for an Algorand account"""
@@ -70,7 +70,7 @@ class Setup:
         self.KMD_WALLET_NAME = "unencrypted-default-wallet"
         self.KMD_WALLET_PASSWORD = ""
 
-        self.TARGET_ACCOUNT = "position atom discover cluster fiction amused toe siren slam author surround spread garage craft isolate whisper kangaroo kitchen lend toss culture various effort absent kidney"
+        self.TARGET_ACCOUNT = "assault approve result rare float sugar power float soul kind galaxy edit unusual pretty tone tilt net range pelican avoid unhappy amused recycle abstract master"
 
         self.kmdAccounts : Optional[List[Account]] = None
 
