@@ -275,63 +275,63 @@ def publishMessage():
 #        uint8 consistencyLevel
 #    ) external payable returns (uint64 sequence);
     return Seq([
-        Log(Bytes("publishMessage"))
+        Log(Bytes("publishMessage")),
         Approve()
     ])
 
 def verifyVM():
 #    function verifyVM(Structs.VM memory vm) external view returns (bool valid, string memory reason);
     return Seq([
-        Log(Bytes("verifyVM"))
+        Log(Bytes("verifyVM")),
         Approve()
     ])
 
 def parseAndVerifyVM():
 #    function parseAndVerifyVM(bytes calldata encodedVM) external view returns (Structs.VM memory vm, bool valid, string memory reason);
     return Seq([
-        Log(Bytes("parseAndVerifyVM"))
+        Log(Bytes("parseAndVerifyVM")),
         Approve()
     ])
 
 def verifySignatures():
 #    function verifySignatures(bytes32 hash, Structs.Signature[] memory signatures, Structs.GuardianSet memory guardianSet) external pure returns (bool valid, string memory reason) ;
     return Seq([
-        Log(Bytes("verifySignatures"))
+        Log(Bytes("verifySignatures")),
         Approve()
     ])
 
 def parseVM():
 #    function parseVM(bytes memory encodedVM) external pure returns (Structs.VM memory vm);
     return Seq([
-        Log(Bytes("parseVM"))
+        Log(Bytes("parseVM")),
         Approve()
     ])
 
 def getGuardianSet():
 #    function getGuardianSet(uint32 index) external view returns (Structs.GuardianSet memory) ;
     return Seq([
-        Log(Bytes("getGuardianSet"))
+        Log(Bytes("getGuardianSet")),
         Approve()
     ])
 
 def getCurrentGuardianSetIndex():
 #    function getCurrentGuardianSetIndex() external view returns (uint32) ;
     return Seq([
-        Log(Bytes("getCurrentGuardianSetIndex"))
+        Log(Bytes("getCurrentGuardianSetIndex")),
         Approve()
     ])
 
 def getGuardianSetExpiry():
 #    function getGuardianSetExpiry() external view returns (uint32) ;
     return Seq([
-        Log(Concat(Bytes("["), App.globalGet(Bytes("gsexp")), Bytes("]")))
+        Log(Concat(Bytes("["), App.globalGet(Bytes("gsexp")), Bytes("]"))),
         Approve()
     ])
 
 def governanceActionIsConsumed():
 #    function governanceActionIsConsumed(bytes32 hash) external view returns (bool) ;
     return Seq([
-        Log(Bytes("governanceActionIsConsumed"))
+        Log(Bytes("governanceActionIsConsumed")),
         Approve()
     ])
 
@@ -339,7 +339,7 @@ def isInitialized():
 #    function isInitialized(address impl) external view returns (bool) ;
 
     return Seq([
-        Log(Bytes("isInitialized"))
+        Log(Bytes("isInitialized")),
         Approve()
     ])
 
@@ -347,7 +347,7 @@ def chainId():
 #    function chainId() external view returns (uint16) ;
 
     return Seq([
-        Log(Bytes("[7]"))
+        Log(Bytes("[7]")),
         Approve()
     ])
 
@@ -355,7 +355,7 @@ def governanceChainId():
 #    function governanceChainId() external view returns (uint16);
 
     return Seq([
-        Log(Bytes("governanceChainId"))
+        Log(Bytes("governanceChainId")),
         Approve()
     ])
 
@@ -363,14 +363,14 @@ def governanceContract():
 #    function governanceContract() external view returns (bytes32);
 
     return Seq([
-        Log(Bytes("governanceContract"))
+        Log(Bytes("governanceContract")),
         Approve()
     ])
 
 def messageFee():
 #    function messageFee() external view returns (uint256) ;
     return Seq([
-        Log(Bytes("messageFee"))
+        Log(Bytes("messageFee")),
         Approve()
     ])
 
