@@ -48,6 +48,8 @@ from globals import *
 from pyteal import Log
 import sys
 
+from util import itoa
+
 GUARDIAN_ADDRESS_SIZE = 20
 METHOD = Txn.application_args[0]
 VERIFY_ARG_GUARDIAN_KEY_SUBSET = Txn.application_args[1]
@@ -61,6 +63,8 @@ SLOT_VERIFIED_BITFIELD = ScratchVar(TealType.uint64, SLOTID_VERIFIED_BIT)
 SLOT_TEMP = ScratchVar(TealType.uint64, SLOTID_TEMP_0)
 
 # defined chainId/contracts
+
+ALGORAND_CHAIN_ID = 7
 
 GOVERNANCE_CHAIN_ID = 1
 GOVERNANCE_EMITTER_ID = '00000000000000000000000000000000000000000000'
@@ -324,7 +328,8 @@ def getCurrentGuardianSetIndex():
 def getGuardianSetExpiry():
 #    function getGuardianSetExpiry() external view returns (uint32) ;
     return Seq([
-        Log(Concat(Bytes("["), App.globalGet(Bytes("gsexp")), Bytes("]"))),
+#        Log(Concat(Concat(Bytes("{\"return\": "), itoa(App.globalGet(Bytes("gsexp")))), Bytes("}"))),
+        Log(Concat(Bytes("{\"return\": "), itoa(App.globalGet(Bytes("gsexp"))), Bytes("}"))),
         Approve()
     ])
 
@@ -347,7 +352,7 @@ def chainId():
 #    function chainId() external view returns (uint16) ;
 
     return Seq([
-        Log(Bytes("8")),
+        Log(Bytes("{\"return\": " + str(ALGORAND_CHAIN_ID)+"}")),
         Approve()
     ])
 
@@ -355,7 +360,7 @@ def governanceChainId():
 #    function governanceChainId() external view returns (uint16);
 
     return Seq([
-        Log(Bytes("governanceChainId")),
+        Log(Bytes("{\"return\": " + str(GOVERNANCE_CHAIN_ID)+"}")),
         Approve()
     ])
 

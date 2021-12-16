@@ -262,7 +262,7 @@ class Setup:
             sender=self.target.getAddress(),
             index=args.appid,
             on_complete=transaction.OnComplete.NoOpOC,
-            app_args=[b"chainId"],
+            app_args=[b"governanceChainId"],
             sp=suggestedParams,
         )
 
