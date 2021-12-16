@@ -45,6 +45,7 @@ from pyteal.types import *
 from pyteal.compiler import *
 from pyteal.ir import *
 from globals import *
+from pyteal import Log
 import sys
 
 GUARDIAN_ADDRESS_SIZE = 20
@@ -203,7 +204,6 @@ def setvphash():
     #
     # Sets the hash of the verification stateless program.
     #
-
     return Seq([
         Assert(is_creator()),
         Assert(Global.group_size() == Int(1)),
@@ -243,6 +243,136 @@ def verify():
             ]))),
         Approve()])
 
+# uint16 chainId;
+# uint16 governanceChainId;
+# bytes32 governanceContract;
+# 
+# // Mapping of guardian_set_index => guardian set
+# mapping(uint32 => Structs.GuardianSet) guardianSets;
+# 
+# // Current active guardian set index
+# uint32 guardianSetIndex;
+# 
+# // Period for which a guardian set stays active after it has been replaced
+# uint32 guardianSetExpiry;
+# 
+# // Sequence numbers per emitter
+# mapping(address => uint64) sequences;
+# 
+# // Mapping of consumed governance actions
+# mapping(bytes32 => bool) consumedGovernanceActions;
+# 
+# // Mapping of initialized implementations
+# mapping(address => bool) initializedImplementations;
+# 
+# uint256 messageFee;
+
+
+def publishMessage():
+#    function publishMessage(
+#        uint32 nonce,
+#        bytes memory payload,
+#        uint8 consistencyLevel
+#    ) external payable returns (uint64 sequence);
+    return Seq([
+        Log(Bytes("publishMessage"))
+        Approve()
+    ])
+
+def verifyVM():
+#    function verifyVM(Structs.VM memory vm) external view returns (bool valid, string memory reason);
+    return Seq([
+        Log(Bytes("verifyVM"))
+        Approve()
+    ])
+
+def parseAndVerifyVM():
+#    function parseAndVerifyVM(bytes calldata encodedVM) external view returns (Structs.VM memory vm, bool valid, string memory reason);
+    return Seq([
+        Log(Bytes("parseAndVerifyVM"))
+        Approve()
+    ])
+
+def verifySignatures():
+#    function verifySignatures(bytes32 hash, Structs.Signature[] memory signatures, Structs.GuardianSet memory guardianSet) external pure returns (bool valid, string memory reason) ;
+    return Seq([
+        Log(Bytes("verifySignatures"))
+        Approve()
+    ])
+
+def parseVM():
+#    function parseVM(bytes memory encodedVM) external pure returns (Structs.VM memory vm);
+    return Seq([
+        Log(Bytes("parseVM"))
+        Approve()
+    ])
+
+def getGuardianSet():
+#    function getGuardianSet(uint32 index) external view returns (Structs.GuardianSet memory) ;
+    return Seq([
+        Log(Bytes("getGuardianSet"))
+        Approve()
+    ])
+
+def getCurrentGuardianSetIndex():
+#    function getCurrentGuardianSetIndex() external view returns (uint32) ;
+    return Seq([
+        Log(Bytes("getCurrentGuardianSetIndex"))
+        Approve()
+    ])
+
+def getGuardianSetExpiry():
+#    function getGuardianSetExpiry() external view returns (uint32) ;
+    return Seq([
+        Log(Concat(Bytes("["), App.globalGet(Bytes("gsexp")), Bytes("]")))
+        Approve()
+    ])
+
+def governanceActionIsConsumed():
+#    function governanceActionIsConsumed(bytes32 hash) external view returns (bool) ;
+    return Seq([
+        Log(Bytes("governanceActionIsConsumed"))
+        Approve()
+    ])
+
+def isInitialized():
+#    function isInitialized(address impl) external view returns (bool) ;
+
+    return Seq([
+        Log(Bytes("isInitialized"))
+        Approve()
+    ])
+
+def chainId():
+#    function chainId() external view returns (uint16) ;
+
+    return Seq([
+        Log(Bytes("[7]"))
+        Approve()
+    ])
+
+def governanceChainId():
+#    function governanceChainId() external view returns (uint16);
+
+    return Seq([
+        Log(Bytes("governanceChainId"))
+        Approve()
+    ])
+
+def governanceContract():
+#    function governanceContract() external view returns (bytes32);
+
+    return Seq([
+        Log(Bytes("governanceContract"))
+        Approve()
+    ])
+
+def messageFee():
+#    function messageFee() external view returns (uint256) ;
+    return Seq([
+        Log(Bytes("messageFee"))
+        Approve()
+    ])
 
 def vaa_processor_program():
     handle_create = Return(bootstrap())
@@ -251,6 +381,21 @@ def vaa_processor_program():
     handle_noop = Cond(
         [METHOD == Bytes("setvphash"), setvphash()],
         [METHOD == Bytes("verify"), verify()],
+
+        [METHOD == Bytes("publishMessage"), publishMessage()],
+        [METHOD == Bytes("verifyVM"), verifyVM()],
+        [METHOD == Bytes("parseAndVerifyVM"), parseAndVerifyVM()],
+        [METHOD == Bytes("verifySignatures"), verifySignatures()],
+        [METHOD == Bytes("parseVM"), parseVM()],
+        [METHOD == Bytes("getGuardianSet"), getGuardianSet()],
+        [METHOD == Bytes("getCurrentGuardianSetIndex"), getCurrentGuardianSetIndex()],
+        [METHOD == Bytes("getGuardianSetExpiry"), getGuardianSetExpiry()],
+        [METHOD == Bytes("governanceActionIsConsumed"), governanceActionIsConsumed()],
+        [METHOD == Bytes("isInitialized"), isInitialized()],
+        [METHOD == Bytes("chainId"), chainId()],
+        [METHOD == Bytes("governanceChainId"), governanceChainId()],
+        [METHOD == Bytes("governanceContract"), governanceContract()],
+        [METHOD == Bytes("messageFee"), messageFee()],
     )
     return Cond(
         [Txn.application_id() == Int(0), handle_create],
