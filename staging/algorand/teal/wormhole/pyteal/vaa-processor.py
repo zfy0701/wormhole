@@ -375,7 +375,7 @@ def governanceContract():
 def messageFee():
 #    function messageFee() external view returns (uint256) ;
     return Seq([
-        Log(Bytes("messageFee")),
+        Log(Bytes("{\"return\": 0}")),
         Approve()
     ])
 

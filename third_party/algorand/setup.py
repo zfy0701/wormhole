@@ -196,7 +196,7 @@ class Setup:
         globalSchema = transaction.StateSchema(num_uints=4, num_byte_slices=20)
         localSchema = transaction.StateSchema(num_uints=0, num_byte_slices=0)
     
-        app_args = [ "beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe", 0, 0 ]
+        app_args = [ "beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe", 0, 86400 ]
 
         if args.appid == None:
             txn = transaction.ApplicationCreateTxn(
