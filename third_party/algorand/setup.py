@@ -2,8 +2,10 @@ from time import time, sleep
 from typing import List, Tuple, Dict, Any, Optional, Union
 from base64 import b64decode
 import base64
+import sys
 import random
 import hashlib
+import argparse
 
 from algosdk.v2client.algod import AlgodClient
 from algosdk.kmd import KMDClient
@@ -15,10 +17,6 @@ from pyteal import *
 from algosdk.logic import get_application_address
 
 import pprint
-
-# Q5XDfcbiqiBwfMlY3gO1Mb0vyNCO+szD3v9azhrG16iO5Z5aTduNzeut/FLG0NOG0+txrBGN6lhi5iwytgkyKg==
-
-# assault approve result rare float sugar power float soul kind galaxy edit unusual pretty tone tilt net range pelican avoid unhappy amused recycle abstract master
 
 class Account:
     """Represents a private key and address for an Algorand account"""
@@ -60,17 +58,18 @@ class PendingTxnResponse:
         self.logs: List[bytes] = [b64decode(l) for l in response.get("logs", [])]
 
 class Setup:
-    def __init__(self) -> None:
-        self.ALGOD_ADDRESS = "http://localhost:4001"
-        self.ALGOD_TOKEN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    def __init__(self, args) -> None:
+        self.args = args
+        self.ALGOD_ADDRESS = args.algod_address
+        self.ALGOD_TOKEN = args.algod_token
         self.FUNDING_AMOUNT = 100_000_000
 
-        self.KMD_ADDRESS = "http://localhost:4002"
-        self.KMD_TOKEN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        self.KMD_WALLET_NAME = "unencrypted-default-wallet"
-        self.KMD_WALLET_PASSWORD = ""
+        self.KMD_ADDRESS = args.kmd_address
+        self.KMD_TOKEN = args.kmd_token
+        self.KMD_WALLET_NAME = args.kmd_name
+        self.KMD_WALLET_PASSWORD = args.kmd_password
 
-        self.TARGET_ACCOUNT = "assault approve result rare float sugar power float soul kind galaxy edit unusual pretty tone tilt net range pelican avoid unhappy amused recycle abstract master"
+        self.TARGET_ACCOUNT = args.mnemonic
 
         self.kmdAccounts : Optional[List[Account]] = None
 
@@ -185,13 +184,12 @@ class Setup:
         if (b[0] < 100000000):
             print("Account needs money... funding it")
             self.fundTargetAccount(self.client, self.target)
-        print(self.getBalances(self.client, self.target.getAddress()))
+        #print(self.getBalances(self.client, self.target.getAddress()))
 
-
-    def deploy(self):
-        vaa_processor_approval = self.client.compile(open("vaa-processor-approval.teal", "r").read())
-        vaa_processor_clear = self.client.compile(open("vaa-processor-clear.teal", "r").read())
-        vaa_verify = self.client.compile(open("vaa-verify.teal", "r").read())
+    def devnet_deploy(self):
+        vaa_processor_approval = self.client.compile(open(args.teal_dir + "/" + args.approval, "r").read())
+        vaa_processor_clear = self.client.compile(open(args.teal_dir + "/" + args.clear, "r").read())
+        vaa_verify = self.client.compile(open(args.teal_dir + "/" + args.verify, "r").read())
         verify_hash = vaa_verify['hash']
         print("verify_hash " + verify_hash + " " + str(len(decode_address(verify_hash))))
 
@@ -199,24 +197,38 @@ class Setup:
         localSchema = transaction.StateSchema(num_uints=0, num_byte_slices=0)
     
         app_args = [ "beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe", 0, 0 ]
-    
-        txn = transaction.ApplicationCreateTxn(
-            sender=self.target.getAddress(),
-            on_complete=transaction.OnComplete.NoOpOC,
-            approval_program=b64decode(vaa_processor_approval["result"]),
-            clear_program=b64decode(vaa_processor_clear["result"]),
-            global_schema=globalSchema,
-            local_schema=localSchema,
-            app_args=app_args,
-            sp=self.client.suggested_params(),
-        )
+
+        if args.appid == None:
+            txn = transaction.ApplicationCreateTxn(
+                sender=self.target.getAddress(),
+                on_complete=transaction.OnComplete.NoOpOC,
+                approval_program=b64decode(vaa_processor_approval["result"]),
+                clear_program=b64decode(vaa_processor_clear["result"]),
+                global_schema=globalSchema,
+                local_schema=localSchema,
+                app_args=app_args,
+                sp=self.client.suggested_params(),
+            )
+        else:
+            txn = transaction.ApplicationUpdateTxn(
+                sender=self.target.getAddress(),
+                index=args.appid,
+                approval_program=b64decode(vaa_processor_approval["result"]),
+                clear_program=b64decode(vaa_processor_clear["result"]),
+                app_args=app_args,
+                sp=self.client.suggested_params(),
+            )
     
         signedTxn = txn.sign(self.target.getPrivateKey())
         self.client.send_transaction(signedTxn)
         response = self.waitForTransaction(self.client, signedTxn.get_txid())
-        assert response.applicationIndex is not None and response.applicationIndex > 0
+        
+        if args.appid == None:
+            assert response.applicationIndex is not None and response.applicationIndex > 0
+        else:
+            response.applicationIndex = args.appid
+            pprint.pprint(response.__dict__)
         print("app_id: ", response.applicationIndex)
-
         appAddr = get_application_address(response.applicationIndex)
         suggestedParams = self.client.suggested_params()
         appCallTxn = transaction.ApplicationCallTxn(
@@ -242,7 +254,67 @@ class Setup:
         self.client.send_transactions([signedAppCallTxn])
         response = self.waitForTransaction(self.client, appCallTxn.get_txid())
         print("funded the stateless contract")
-        
-s = Setup()
-s.setup()
-s.deploy()
+
+    def test(self, args):
+        appAddr = get_application_address(args.appid)
+        suggestedParams = self.client.suggested_params()
+        appCallTxn = transaction.ApplicationCallTxn(
+            sender=self.target.getAddress(),
+            index=args.appid,
+            on_complete=transaction.OnComplete.NoOpOC,
+            app_args=[b"chainId"],
+            sp=suggestedParams,
+        )
+
+        signedAppCallTxn = appCallTxn.sign(self.target.getPrivateKey())
+        self.client.send_transactions([signedAppCallTxn])
+        response = self.waitForTransaction(self.client, appCallTxn.get_txid())
+        pprint.pprint(response.__dict__)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='algorand setup')
+
+    parser.add_argument('--algod_address', type=str, help='algod address (default: http://localhost:4001)', 
+                        default="http://localhost:4001")
+    parser.add_argument('--algod_token', type=str, help='algod access token', 
+                        default="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    parser.add_argument('--kmd_address', type=str, help='kmd wallet address (default: http://localhost:4002)',
+                        default="http://localhost:4002")
+    parser.add_argument('--kmd_token', type=str, help='kmd wallet access token', 
+                        default="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    parser.add_argument('--kmd_name', type=str, help='kmd wallet name', 
+                        default="unencrypted-default-wallet")
+    parser.add_argument('--kmd_password', type=str, help='kmd wallet password', default="")
+
+    parser.add_argument('--approval', type=str, help='vaa approval teal', default="vaa-processor-approval.teal")
+    parser.add_argument('--clear', type=str, help='vaa clear teal', default="vaa-processor-clear.teal")
+    parser.add_argument('--verify', type=str, help='vaa verify teal', default="vaa-verify.teal")
+    parser.add_argument('--teal_dir', type=str, help='where to find the teal files', default=".")
+
+    # This is the devnet mnemonic...
+    parser.add_argument('--mnemonic', type=str, help='account mnemonic', 
+                        default="assault approve result rare float sugar power float soul kind galaxy edit unusual pretty tone tilt net range pelican avoid unhappy amused recycle abstract master")
+
+    parser.add_argument('--appid', type=int, help='setup devnet')
+    parser.add_argument('--devnet', action='store_true', help='setup devnet')
+    parser.add_argument('--test', action='store_true', help='test devnet')
+
+    args = parser.parse_args()
+
+    if args.devnet:
+        s = Setup(args)
+        s.setup()
+        s.devnet_deploy()
+        sys.exit(0)
+
+    if args.test:
+        if args.appid == None:
+            print("you need to specify the appid when testing")
+            sys.exit(-1)
+        s = Setup(args)
+        s.setup()
+        s.test(args)
+        sys.exit(0)
+
+    print("use --help to see what you can do")
+    sys.exit(-1)

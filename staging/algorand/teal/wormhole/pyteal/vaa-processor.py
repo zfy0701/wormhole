@@ -347,7 +347,7 @@ def chainId():
 #    function chainId() external view returns (uint16) ;
 
     return Seq([
-        Log(Bytes("[7]")),
+        Log(Bytes("8")),
         Approve()
     ])
 
