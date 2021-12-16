@@ -368,7 +368,7 @@ def governanceContract():
 #    function governanceContract() external view returns (bytes32);
 
     return Seq([
-        Log(Bytes("governanceContract")),
+        Log(Bytes("{\"return\": " + GOVERNANCE_EMITTER_ID+"}")),
         Approve()
     ])
 
