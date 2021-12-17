@@ -196,7 +196,7 @@ class Setup:
         globalSchema = transaction.StateSchema(num_uints=4, num_byte_slices=20)
         localSchema = transaction.StateSchema(num_uints=0, num_byte_slices=0)
     
-        app_args = [ "beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe", 0, 86400 ]
+        app_args = [ "beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe", 86400, 0 ]
 
         if args.appid == None:
             txn = transaction.ApplicationCreateTxn(
@@ -255,6 +255,37 @@ class Setup:
         response = self.waitForTransaction(self.client, appCallTxn.get_txid())
         print("funded the stateless contract")
 
+    # helper function that formats global state for printing
+    def format_state(self, state):
+        formatted = {}
+        for item in state:
+            key = item['key']
+            value = item['value']
+            formatted_key = base64.b64decode(key).decode('utf-8')
+            if value['type'] == 1:
+                # byte string
+                if formatted_key == 'voted':
+                    formatted_value = base64.b64decode(value['bytes']).decode('utf-8')
+                else:
+                    formatted_value = value['bytes']
+                formatted[formatted_key] = formatted_value
+            else:
+                # integer
+                formatted[formatted_key] = value['uint']
+        return formatted
+    
+    # helper function to read app global state
+    def read_global_state(self, client, addr, app_id):
+        results = client.account_info(addr)
+        apps_created = results['created-apps']
+        for app in apps_created:
+            if app['id'] == app_id:
+                return self.format_state(app['params']['global-state'])
+        return {}
+
+    def printState(self, args):
+        pprint.pprint(self.read_global_state(self.client, self.target.getAddress(), args.appid))
+
     def test(self, args):
         appAddr = get_application_address(args.appid)
         suggestedParams = self.client.suggested_params()
@@ -298,6 +329,7 @@ if __name__ == "__main__":
     parser.add_argument('--appid', type=int, help='setup devnet')
     parser.add_argument('--devnet', action='store_true', help='setup devnet')
     parser.add_argument('--test', action='store_true', help='test devnet')
+    parser.add_argument('--print', action='store_true', help='print')
 
     args = parser.parse_args()
 
@@ -314,6 +346,15 @@ if __name__ == "__main__":
         s = Setup(args)
         s.setup()
         s.test(args)
+        sys.exit(0)
+
+    if args.print:
+        if args.appid == None:
+            print("you need to specify the appid when testing")
+            sys.exit(-1)
+        s = Setup(args)
+        s.setup()
+        s.printState(args)
         sys.exit(0)
 
     print("use --help to see what you can do")
