@@ -29,6 +29,5 @@ export async function relayEVM(
         hexToUint8Array(signedVAA)
       );
   provider.destroy();
-  console.log("successfully redeemed on evm", receipt);
   response.status(200).json(receipt);
 }

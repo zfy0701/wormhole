@@ -1,11 +1,5 @@
-import {
-  CHAIN_ID_ETH,
-  hexToUint8Array,
-  redeemOnEth,
-} from "@certusone/wormhole-sdk";
-import { ethers } from "ethers";
-import { RelayerEnvironment, validateEnvironment } from "./configureEnv";
 import { relay } from "./relay/main";
+import { calculateFee } from "./feeCalculation/main";
 const cors = require("cors");
 
 /*
@@ -30,6 +24,10 @@ function startServer() {
   app.use(bodyParser.urlencoded({ extended: true }));
   app.use(bodyParser.json());
   app.post("/relay", relay);
+  app.get("/fee/:originChain/:originAsset/:targetChain", calculateFee);
+  app.get("/health", (request, response) =>
+    response.status(200).json({ status: "Server is healthy" })
+  );
   app.listen(3111, () => {
     console.log("Server running on port 3111");
   });

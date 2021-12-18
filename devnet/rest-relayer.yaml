@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rest-relayer
+  labels:
+    app: rest-relayer
+spec:
+  clusterIP: None
+  selector:
+    app: rest-relayer
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rest-relayer
+spec:
+  selector:
+    matchLabels:
+      app: rest-relayer
+  serviceName: rest-relayer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: rest-relayer
+    spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: rest-relayer
+          image: rest-relayer
+          command:
+            - /app/examples/rest_relayer/start.sh
+            - npm
+            - run
+            - --prefix
+            - /app/examples/rest_relayer/
+            - start
+          readinessProbe:
+            initialDelaySeconds: 5
+            httpGet:
+              port: 3111
+              path: /health

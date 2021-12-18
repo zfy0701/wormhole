@@ -38,6 +38,7 @@ config.define_string("webHost", False, "Public hostname for port forwards")
 config.define_bool("pyth", False, "Enable Pyth-to-Wormhole component")
 config.define_bool("explorer", False, "Enable explorer component")
 config.define_bool("bridge_ui", False, "Enable bridge UI component")
+config.define_bool("rest_relayer", False, "Enable rest relayer component")
 config.define_bool("e2e", False, "Enable E2E testing stack")
 
 cfg = config.parse()
@@ -50,6 +51,7 @@ ci = cfg.get("ci", False)
 pyth = cfg.get("pyth", ci)
 explorer = cfg.get("explorer", ci)
 bridge_ui = cfg.get("bridge_ui", ci)
+rest_relayer = cfg.get("rest_relayer", ci)
 e2e = cfg.get("e2e", ci)
 
 if cfg.get("manual", False):
@@ -284,6 +286,28 @@ if bridge_ui:
         resource_deps = ["proto-gen-web", "wasm-gen"],
         port_forwards = [
             port_forward(3000, name = "Bridge UI [:3000]", host = webHost),
+        ],
+        trigger_mode = trigger_mode,
+    )
+
+if rest_relayer:
+    docker_build(
+        ref = "rest-relayer",
+        context = ".",
+        only = ["./examples/rest_relayer"],
+        dockerfile = "examples/rest_relayer/Dockerfile",
+        live_update = [
+            sync("./examples/rest_relayer/src", "/app/examples/rest_relayer/src"),
+            run("/app/examples/rest_relayer/restart.sh")
+        ],
+    )
+
+    k8s_yaml_with_ns("devnet/rest-relayer.yaml")
+
+    k8s_resource(
+        "rest-relayer",
+        port_forwards = [
+            port_forward(3111, name = "Rest Relayer API [:3111]", host = webHost),
         ],
         trigger_mode = trigger_mode,
     )

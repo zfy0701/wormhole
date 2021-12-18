@@ -32,7 +32,6 @@ export async function relayTerra(
 
   //const walletSequence = await wallet.sequence();
   const feeEstimate = await lcd.tx.estimateFee(wallet.key.accAddress, [msg], {
-    //TODO figure out type mismatch
     feeDenoms: ["uluna"],
     gasPrices,
   });
