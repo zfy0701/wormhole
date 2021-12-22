@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-export type ChainId = 1 | 2 | 3 | 4 | 5 | 6 | 7| 10001;
-=======
-export type ChainId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 10001;
->>>>>>> origin/dev.v2
+export type ChainId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10001;
 export const CHAIN_ID_SOLANA: ChainId = 1;
 export const CHAIN_ID_ETH: ChainId = 2;
 export const CHAIN_ID_TERRA: ChainId = 3;
