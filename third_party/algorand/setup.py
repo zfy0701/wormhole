@@ -184,6 +184,7 @@ class Setup:
         if (b[0] < 100000000):
             print("Account needs money... funding it")
             self.fundTargetAccount(self.client, self.target)
+
         #print(self.getBalances(self.client, self.target.getAddress()))
 
     def devnet_deploy(self):
