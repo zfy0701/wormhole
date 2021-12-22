@@ -247,113 +247,6 @@ def verify():
             ]))),
         Approve()])
 
-def publishMessage():
-#    function publishMessage(
-#        uint32 nonce,
-#        bytes memory payload,
-#        uint8 consistencyLevel
-#    ) external payable returns (uint64 sequence);
-    return Seq([
-        Log(Bytes("publishMessage")),
-        Approve()
-    ])
-
-def verifyVM():
-#    function verifyVM(Structs.VM memory vm) external view returns (bool valid, string memory reason);
-    return Seq([
-        Log(Bytes("verifyVM")),
-        Approve()
-    ])
-
-def parseAndVerifyVM():
-#    function parseAndVerifyVM(bytes calldata encodedVM) external view returns (Structs.VM memory vm, bool valid, string memory reason);
-    return Seq([
-        Log(Bytes("parseAndVerifyVM")),
-        Approve()
-    ])
-
-def verifySignatures():
-#    function verifySignatures(bytes32 hash, Structs.Signature[] memory signatures, Structs.GuardianSet memory guardianSet) external pure returns (bool valid, string memory reason) ;
-    return Seq([
-        Log(Bytes("verifySignatures")),
-        Approve()
-    ])
-
-def parseVM():
-#    function parseVM(bytes memory encodedVM) external pure returns (Structs.VM memory vm);
-    return Seq([
-        Log(Bytes("parseVM")),
-        Approve()
-    ])
-
-def getGuardianSet():
-#    function getGuardianSet(uint32 index) external view returns (Structs.GuardianSet memory) ;
-    return Seq([
-        Log(Bytes("getGuardianSet")),
-        Approve()
-    ])
-
-def getCurrentGuardianSetIndex():
-#    function getCurrentGuardianSetIndex() external view returns (uint32) ;
-    return Seq([
-        Log(Bytes("getCurrentGuardianSetIndex")),
-        Approve()
-    ])
-
-def getGuardianSetExpiry():
-#    function getGuardianSetExpiry() external view returns (uint32) ;
-    return Seq([
-#        Log(Concat(Concat(Bytes("{\"return\": "), itoa(App.globalGet(Bytes("gsexp")))), Bytes("}"))),
-        Log(Concat(Bytes("{\"return\": "), itoa(App.globalGet(Bytes("gsexp"))), Bytes("}"))),
-        Approve()
-    ])
-
-def governanceActionIsConsumed():
-#    function governanceActionIsConsumed(bytes32 hash) external view returns (bool) ;
-    return Seq([
-        Log(Bytes("governanceActionIsConsumed")),
-        Approve()
-    ])
-
-def isInitialized():
-#    function isInitialized(address impl) external view returns (bool) ;
-
-    return Seq([
-        Log(Bytes("isInitialized")),
-        Approve()
-    ])
-
-def chainId():
-#    function chainId() external view returns (uint16) ;
-
-    return Seq([
-        Log(Bytes("{\"return\": " + str(ALGORAND_CHAIN_ID)+"}")),
-        Approve()
-    ])
-
-def governanceChainId():
-#    function governanceChainId() external view returns (uint16);
-
-    return Seq([
-        Log(Bytes("{\"return\": " + str(GOVERNANCE_CHAIN_ID)+"}")),
-        Approve()
-    ])
-
-def governanceContract():
-#    function governanceContract() external view returns (bytes32);
-
-    return Seq([
-        Log(Bytes("{\"return\": " + GOVERNANCE_EMITTER_ID+"}")),
-        Approve()
-    ])
-
-def messageFee():
-#    function messageFee() external view returns (uint256) ;
-    return Seq([
-        Log(Bytes("{\"return\": 0}")),
-        Approve()
-    ])
-
 def vaa_processor_program():
     handle_create = Return(bootstrap())
     handle_update = Return(is_creator())
@@ -361,21 +254,7 @@ def vaa_processor_program():
     handle_noop = Cond(
         [METHOD == Bytes("setvphash"), setvphash()],
         [METHOD == Bytes("verify"), verify()],
-
-        [METHOD == Bytes("publishMessage"), publishMessage()],
-        [METHOD == Bytes("verifyVM"), verifyVM()],
-        [METHOD == Bytes("parseAndVerifyVM"), parseAndVerifyVM()],
-        [METHOD == Bytes("verifySignatures"), verifySignatures()],
-        [METHOD == Bytes("parseVM"), parseVM()],
-        [METHOD == Bytes("getGuardianSet"), getGuardianSet()],
-        [METHOD == Bytes("getCurrentGuardianSetIndex"), getCurrentGuardianSetIndex()],
-        [METHOD == Bytes("getGuardianSetExpiry"), getGuardianSetExpiry()],
-        [METHOD == Bytes("governanceActionIsConsumed"), governanceActionIsConsumed()],
-        [METHOD == Bytes("isInitialized"), isInitialized()],
-        [METHOD == Bytes("chainId"), chainId()],
-        [METHOD == Bytes("governanceChainId"), governanceChainId()],
-        [METHOD == Bytes("governanceContract"), governanceContract()],
-        [METHOD == Bytes("messageFee"), messageFee()],
+#        [METHOD == Bytes("parseAndVerifyVM"), parseAndVerifyVM()],
     )
     return Cond(
         [Txn.application_id() == Int(0), handle_create],
