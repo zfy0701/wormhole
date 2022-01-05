@@ -57,6 +57,7 @@ export interface TransferState {
   redeemTx: Transaction | undefined;
   isApproving: boolean;
   isRecovery: boolean;
+  gasPrice: number | undefined;
 }
 
 const initialState: TransferState = {
@@ -80,6 +81,7 @@ const initialState: TransferState = {
   redeemTx: undefined,
   isApproving: false,
   isRecovery: false,
+  gasPrice: undefined,
 };
 
 export const transferSlice = createSlice({
@@ -257,6 +259,9 @@ export const transferSlice = createSlice({
       state.activeStep = 3;
       state.isRecovery = true;
     },
+    setGasPrice: (state, action: PayloadAction<number>) => {
+      state.gasPrice = action.payload;
+    },
   },
 });
 
@@ -285,6 +290,7 @@ export const {
   setIsApproving,
   reset,
   setRecoveryVaa,
+  setGasPrice,
 } = transferSlice.actions;
 
 export default transferSlice.reducer;

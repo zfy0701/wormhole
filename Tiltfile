@@ -39,6 +39,7 @@ config.define_bool("pyth", False, "Enable Pyth-to-Wormhole component")
 config.define_bool("explorer", False, "Enable explorer component")
 config.define_bool("bridge_ui", False, "Enable bridge UI component")
 config.define_bool("e2e", False, "Enable E2E testing stack")
+config.define_bool("spy_relayer", False, "Enable spy relayer")
 
 cfg = config.parse()
 num_guardians = int(cfg.get("num", "1"))
@@ -51,6 +52,7 @@ pyth = cfg.get("pyth", ci)
 explorer = cfg.get("explorer", ci)
 bridge_ui = cfg.get("bridge_ui", ci)
 e2e = cfg.get("e2e", ci)
+spy_relayer = cfg.get("spy_relayer", ci)
 
 if cfg.get("manual", False):
     trigger_mode = TRIGGER_MODE_MANUAL
@@ -257,6 +259,45 @@ if pyth:
         port_forwards = [],
         trigger_mode = trigger_mode,
     )
+
+if spy_relayer:
+    docker_build(
+        ref = "redis",
+        context = ".",
+        only = ["./third_party"],
+        dockerfile = "third_party/redis/Dockerfile",
+    )
+
+    k8s_yaml_with_ns("devnet/redis.yaml")
+
+    k8s_resource(
+        "redis",
+        port_forwards = [
+            port_forward(6379, name = "Redis Default [:6379]", host = webHost),
+        ],
+        trigger_mode = trigger_mode,
+    )
+
+    docker_build(
+        ref = "spy-relayer",
+        context = ".",
+        only = ["./relayer/spy_relayer"],
+        dockerfile = "relayer/spy_relayer/Dockerfile",
+        live_update = []
+    )
+
+    k8s_yaml_with_ns("devnet/spy-relayer.yaml")
+
+    k8s_resource(
+        "spy-relayer",
+        resource_deps = ["proto-gen", "guardian", "redis"],
+        port_forwards = [
+            port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
+            port_forward(7073, name = "Spy gRPC [:7073]", host = webHost),
+        ],
+        trigger_mode = trigger_mode,
+    )
+
 
 k8s_yaml_with_ns("devnet/eth-devnet.yaml")
 

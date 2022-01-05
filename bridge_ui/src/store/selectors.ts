@@ -295,7 +295,8 @@ export const selectTransferShouldLockFields = (state: RootState) =>
   selectTransferIsSending(state) || selectTransferIsSendComplete(state);
 export const selectTransferIsRecovery = (state: RootState) =>
   state.transfer.isRecovery;
-
+export const selectTransferGasPrice = (state: RootState) =>
+  state.transfer.gasPrice;
 export const selectSolanaTokenMap = (state: RootState) => {
   return state.tokens.solanaTokenMap;
 };
