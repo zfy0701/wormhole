@@ -95,8 +95,14 @@ RUN mkdir /data && chown redis:redis /data
 VOLUME /data
 WORKDIR /data
 
-COPY /third_party/redis/docker-entrypoint.sh /usr/local/bin/
+ADD . .
+RUN chmod 777 /data/third_party/redis/docker-entrypoint.sh
+RUN cp /data/third_party/redis/docker-entrypoint.sh /usr/local/bin/
+
 ENTRYPOINT ["docker-entrypoint.sh"]
 
 EXPOSE 6379
 CMD ["redis-server"]
+#CMD nc -lkp 2000 0.0.0.0
+
+
