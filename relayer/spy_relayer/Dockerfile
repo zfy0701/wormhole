@@ -23,5 +23,5 @@ RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
   npm run build
 
 #TODO don't hardcode for tilt but accept env file
-RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
-  npm run tilt_relay
+# RUN --mount=type=cache,uid=1000,gid=1000,target=/home/node/.npm \
+#   npm run tilt_relay

@@ -31,7 +31,11 @@ spec:
         - name: spy-relayer
           image: spy-relayer
           command:
-            # - npm run tilt_relay
+            - npm
+            - run
+            - --prefix
+            - /app/relayer/spy_relayer/
+            - tilt_relay
           tty: true
           readinessProbe:
             tcpSocket:
