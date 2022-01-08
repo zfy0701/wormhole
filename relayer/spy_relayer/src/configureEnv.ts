@@ -31,11 +31,18 @@ export function loadChainConfig(): boolean {
     supportedChains.push(configEth());
     supportedChains.push(configBsc());
     supportedChains.push(configTerra());
+
+    env = { supportedChains: supportedChains };
   } catch (e) {
     logger.error("loadChainConfig: failed to load config: %o", e);
     return false;
   }
 
+  logger.debug(
+    "loadChainConfig: loaded " +
+      env.supportedChains.length +
+      " supported chains"
+  );
   return true;
 }
 

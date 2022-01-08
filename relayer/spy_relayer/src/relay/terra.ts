@@ -24,7 +24,7 @@ export async function relayTerra(
   const wallet = lcd.wallet(mk);
 
   logger.info(
-    "relaying to terra, terraChainId: [" +
+    "relayTerra: terraChainId: [" +
       chainConfigInfo.terraChainId +
       "], private key: [" +
       chainConfigInfo.walletPrivateKey +
@@ -43,10 +43,12 @@ export async function relayTerra(
     signedVaaArray
   );
 
+  logger.debug("relayTerra: getting gas prices");
   //Alternate FCD methodology
   //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
   const gasPrices = await lcd.config.gasPrices;
 
+  logger.debug("relayTerra: estimating fees");
   //const walletSequence = await wallet.sequence();
   const feeEstimate = await lcd.tx.estimateFee(wallet.key.accAddress, [msg], {
     //TODO figure out type mismatch
@@ -54,6 +56,7 @@ export async function relayTerra(
     gasPrices,
   });
 
+  logger.debug("relayTerra: createAndSign");
   const tx = await wallet.createAndSignTx({
     msgs: [msg],
     memo: "Relayer - Complete Transfer",
@@ -62,8 +65,10 @@ export async function relayTerra(
     fee: feeEstimate,
   });
 
+  logger.debug("relayTerra: broadcasting");
   const receipt = await lcd.tx.broadcast(tx);
 
+  logger.debug("relayTerra: awaiting transfer complete");
   var success = await await getIsTransferCompletedTerra(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
@@ -72,6 +77,11 @@ export async function relayTerra(
     chainConfigInfo.terraGasPriceUrl
   );
 
-  logger.info("redeemed on terra: success:", success, ", receipt:", receipt);
+  logger.info(
+    "relayTerra: redeemed on terra: success:",
+    success,
+    ", receipt:",
+    receipt
+  );
   return { redeemed: success, result: receipt };
 }
