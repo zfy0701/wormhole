@@ -24,41 +24,58 @@ import { createClient } from "redis";
 
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
+import { logger } from "./helpers";
 import { relay } from "./relay/main";
 
-export async function spy_worker() {
-  require("dotenv").config();
+var redisHost: string;
+var redisPort: number;
+
+export function init(runWorker: boolean): boolean {
+  if (!runWorker) return true;
+
+  if (!process.env.REDIS_HOST) {
+    logger.error("Missing environment variable REDIS_HOST");
+    return false;
+  }
+
+  if (!process.env.REDIS_PORT) {
+    logger.error("Missing environment variable REDIS_PORT");
+    return false;
+  }
+
+  redisHost = process.env.REDIS_HOST;
+  redisPort = parseInt(process.env.REDIS_PORT);
+
+  return true;
+}
+
+export async function run() {
   var numWorkers = 1;
   if (process.env.SPY_NUM_WORKERS) {
     numWorkers = parseInt(process.env.SPY_NUM_WORKERS);
-    console.log("will use %d workers", numWorkers);
+    logger.info("will use " + numWorkers + " workers");
   }
 
   setDefaultWasm("node");
 
   for (var workerIdx = 0; workerIdx < numWorkers; ++workerIdx) {
-    console.log("starting worker %d", workerIdx);
+    logger.info("starting worker " + workerIdx);
     (async () => {
       let myWorkerIdx = workerIdx;
-      const redisClient = createClient({
-        socket: {
-          host: process.env.REDIS_HOST,
-        },
-      });
-      redisClient.on("connect", function (err) {
-        if (err) {
-          console.error("Redis reader client failed to connect to Redis:", err);
-        } else {
-          console.log("[%d]Redis reader client connected", myWorkerIdx);
-        }
-      });
-      await redisClient.connect();
+      const redisClient = await connectToRedis();
+      if (!redisClient) {
+        logger.error("[" + myWorkerIdx + "] Failed to connect to redis!");
+        return;
+      }
+
       while (true) {
         await redisClient.select(helpers.INCOMING);
         for await (const si_key of redisClient.scanIterator()) {
           const si_value = await redisClient.get(si_key);
           if (si_value) {
-            // console.log("SI: %s => %s", si_key, si_value);
+            logger.debug(
+              "[" + myWorkerIdx + "] SI: " + si_key + " =>" + si_value
+            );
             // Get result from evaluation algorithm
             // If true, then do the transfer
             const shouldDo = evaluate(si_value);
@@ -66,10 +83,12 @@ export async function spy_worker() {
               // Move this entry to from incoming store to working store
               await redisClient.select(helpers.INCOMING);
               if ((await redisClient.del(si_key)) === 0) {
-                console.log(
-                  "[%d]The key [%s] no longer exists in INCOMING",
-                  myWorkerIdx,
-                  si_key
+                logger.info(
+                  "[" +
+                    myWorkerIdx +
+                    "] The key [" +
+                    si_key +
+                    "] no longer exists in INCOMING"
                 );
                 return;
               }
@@ -87,18 +106,18 @@ export async function spy_worker() {
                   helpers.workingPayloadToJson(newPayload)
                 );
                 // Process the request
-                await processRequest(redisClient, si_key);
+                await processRequest(myWorkerIdx, redisClient, si_key);
               }
             }
           } else {
-            console.error("No si_keyval returned!");
+            logger.error("[" + myWorkerIdx + "] No si_keyval returned!");
           }
         }
         // add sleep
         await helpers.sleep(3000);
       }
 
-      console.log("worker %d exiting", myWorkerIdx);
+      logger.info("[" + myWorkerIdx + "] worker %d exiting");
       await redisClient.quit();
     })();
     // Stagger the threads so they don't all wake up at once
@@ -107,47 +126,82 @@ export async function spy_worker() {
 }
 
 function evaluate(blob: string) {
-  // console.log("Checking [%s]", blob);
+  // logger.debug("Checking [" + blob + "]");
   // if (blob.startsWith("01000000000100e", 14)) {
   // if (Math.floor(Math.random() * 5) == 1) {
-  // console.log("Evaluated true...");
+  // logger.debug("Evaluated true...");
   return true;
   // }
-  // console.log("Evaluated false...");
+  // logger.info("Evaluated false...");
   // return false;
 }
 
-async function processRequest(rClient, key: string) {
-  console.log("Processing request [%s]...", key);
+async function processRequest(myWorkerIdx: number, rClient, key: string) {
+  logger.debug("[" + myWorkerIdx + "] Processing request [" + key + "]...");
   // Get the entry from the working store
   await rClient.select(helpers.WORKING);
   var value: string = await rClient.get(key);
   if (!value) {
-    console.error("processRequest could not find key [%s]", key);
+    logger.error(
+      "[" + myWorkerIdx + "] processRequest could not find key [" + key + "]"
+    );
     return;
   }
   var storeKey = helpers.storeKeyFromJson(key);
   var payload: helpers.StoreWorkingPayload =
     helpers.workingPayloadFromJson(value);
   if (payload.status !== "Pending") {
-    console.log("This key [%s] has already been processed.", key);
+    logger.info(
+      "[" + myWorkerIdx + "] This key [" + key + "] has already been processed."
+    );
     return;
   }
   // Actually do the processing here and update status and time field
   try {
-    console.log(
-      "processRequest() - Calling with vaa_bytes [%s]",
-      payload.vaa_bytes
+    logger.info(
+      "[" +
+        myWorkerIdx +
+        "] processRequest() - Calling with vaa_bytes [" +
+        payload.vaa_bytes +
+        "]"
     );
     var relayResult = await relay(payload.vaa_bytes);
-    console.log("processRequest() - relay returned", relayResult);
+    logger.info(
+      "[" + myWorkerIdx + "] processRequest() - relay returned: %o",
+      relayResult
+    );
     payload.status = relayResult;
   } catch (e) {
-    console.error("processRequest() - failed to relay transfer vaa:", e);
+    logger.error(
+      "[" +
+        myWorkerIdx +
+        "] processRequest() - failed to relay transfer vaa: %o",
+      e
+    );
     payload.status = "Failed: " + e;
   }
   // Put result back into store
   payload.timestamp = new Date().toString();
   value = helpers.workingPayloadToJson(payload);
   await rClient.set(key, value);
+}
+
+export async function connectToRedis() {
+  var rClient = createClient({
+    socket: {
+      host: redisHost,
+      port: redisPort,
+    },
+  });
+
+  rClient.on("connect", function (err) {
+    if (err) {
+      logger.error("Redis writer client failed to connect: %o", err);
+    } else {
+      logger.debug("Redis writer client Connected");
+    }
+  });
+
+  await rClient.connect();
+  return rClient;
 }

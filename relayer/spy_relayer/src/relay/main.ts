@@ -9,12 +9,11 @@ import {
   parseTransferPayload,
 } from "@certusone/wormhole-sdk";
 
-import { RelayerEnvironment, validateEnvironment } from "../configureEnv";
+import { logger } from "../helpers";
+import { env } from "../configureEnv";
 import { relayEVM } from "./evm";
 import { relaySolana } from "./solana";
 import { relayTerra } from "./terra";
-
-const env: RelayerEnvironment = validateEnvironment();
 
 function getChainConfigInfo(chainId: ChainId) {
   return env.supportedChains.find((x) => x.chainId === chainId);
@@ -29,7 +28,7 @@ export async function relay(signedVAA: string): Promise<any> {
     const unwrapNative = false;
     const chainConfigInfo = getChainConfigInfo(transferPayload.targetChain);
     if (!chainConfigInfo) {
-      console.error("Improper chain ID:", transferPayload.targetChain);
+      logger.error("relay: improper chain ID: " + transferPayload.targetChain);
       return "invalid chain id";
     }
 
@@ -50,15 +49,10 @@ export async function relay(signedVAA: string): Promise<any> {
         return "TERRA_GAS_PRICES_URL env parameter is not set!";
       }
 
-      return await relayTerra(
-        chainConfigInfo,
-        signedVAA,
-        process.env.TERRA_CHAIN_ID,
-        process.env.TERRA_GAS_PRICES_URL
-      );
+      return await relayTerra(chainConfigInfo, signedVAA);
     }
 
-    console.error("Improper chain ID");
+    logger.error("relay: unsupported chain ID: " + transferPayload.targetChain);
     return "invalid chain id";
   }
 }

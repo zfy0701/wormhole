@@ -4,19 +4,18 @@ import {
 } from "@certusone/wormhole-sdk";
 import { redeemOnTerra, transferFromTerra } from "@certusone/wormhole-sdk";
 import { LCDClient, MnemonicKey, Msg, Wallet } from "@terra-money/terra.js";
+import { logger } from "../helpers";
 import { ChainConfigInfo } from "../configureEnv";
 
 export async function relayTerra(
   chainConfigInfo: ChainConfigInfo,
-  signedVAA: string,
-  terraChainId: string,
-  gassPriceUrl: string
+  signedVAA: string
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
   const lcdConfig = {
     URL: chainConfigInfo.nodeUrl,
-    chainID: terraChainId,
-    name: "localhost",
+    chainID: chainConfigInfo.terraChainId,
+    name: chainConfigInfo.terraName,
   };
   const lcd = new LCDClient(lcdConfig);
   const mk = new MnemonicKey({
@@ -24,14 +23,19 @@ export async function relayTerra(
   });
   const wallet = lcd.wallet(mk);
 
-  // console.log(
-  //   "relaying to terra, terraChainId: [%s], private key: [%s], tokenBridgeAddress: [%s], accAddress: [%s], signedVAA: [%s]",
-  //   terraChainId,
-  //   chainConfigInfo.walletPrivateKey,
-  //   chainConfigInfo.tokenBridgeAddress,
-  //   wallet.key.accAddress,
-  //   signedVAA
-  // );
+  logger.info(
+    "relaying to terra, terraChainId: [" +
+      chainConfigInfo.terraChainId +
+      "], private key: [" +
+      chainConfigInfo.walletPrivateKey +
+      "], tokenBridgeAddress: [" +
+      chainConfigInfo.tokenBridgeAddress +
+      "], accAddress: [" +
+      wallet.key.accAddress +
+      "], signedVAA: [" +
+      signedVAA +
+      "]"
+  );
 
   const msg = await redeemOnTerra(
     chainConfigInfo.tokenBridgeAddress,
@@ -46,14 +50,14 @@ export async function relayTerra(
   //const walletSequence = await wallet.sequence();
   const feeEstimate = await lcd.tx.estimateFee(wallet.key.accAddress, [msg], {
     //TODO figure out type mismatch
-    feeDenoms: ["uluna"],
+    feeDenoms: [chainConfigInfo.terraCoin],
     gasPrices,
   });
 
   const tx = await wallet.createAndSignTx({
     msgs: [msg],
     memo: "Relayer - Complete Transfer",
-    feeDenoms: ["uluna"],
+    feeDenoms: [chainConfigInfo.terraCoin],
     gasPrices,
     fee: feeEstimate,
   });
@@ -65,9 +69,9 @@ export async function relayTerra(
     signedVaaArray,
     wallet.key.accAddress,
     lcd,
-    gassPriceUrl
+    chainConfigInfo.terraGasPriceUrl
   );
 
-  console.log("redeemed on terra: success:", success, ", receipt:", receipt);
+  logger.info("redeemed on terra: success:", success, ", receipt:", receipt);
   return { redeemed: success, result: receipt };
 }

@@ -6,6 +6,7 @@ import {
 import { redeemOnSolana } from "@certusone/wormhole-sdk";
 import { Connection, Keypair } from "@solana/web3.js";
 import { TextEncoder } from "util";
+import { logger } from "../helpers";
 import { ChainConfigInfo } from "../configureEnv";
 
 export async function relaySolana(
@@ -17,16 +18,18 @@ export async function relaySolana(
   const signedVaaArray = hexToUint8Array(signedVAAString);
   const signedVaaBuffer = Buffer.from(signedVaaArray);
   const connection = new Connection(chainConfigInfo.nodeUrl, "confirmed");
-  // console.log(
-  //   "relaying to solana, private key: [%s], bridgeAddress: [%s], signedVAAString: [%s]",
-  //   chainConfigInfo.walletPrivateKey,
-  //   chainConfigInfo.bridgeAddress,
-  //   signedVAAString,
-  //   ", signedVaaArray",
-  //   signedVaaArray,
-  //   ", signedVaaBuffer",
-  //   signedVaaBuffer
-  // );
+  logger.info(
+    "relaying to solana, private key: [" +
+      chainConfigInfo.walletPrivateKey +
+      "], bridgeAddress: [" +
+      chainConfigInfo.bridgeAddress +
+      "], signedVAAString: [" +
+      signedVAAString +
+      "]" +
+      " signedVaaArray: %o",
+    signedVaaArray + ", signedVaaBuffer: %o",
+    signedVaaBuffer
+  );
   const keypair = Keypair.fromSecretKey(
     Uint8Array.from(JSON.parse(chainConfigInfo.walletPrivateKey))
   );
@@ -60,6 +63,6 @@ export async function relaySolana(
     connection
   );
 
-  console.log("redeemed on solana: success:", success, ", txid:", txid);
+  logger.info("redeemed on solana: success: " + success + ", txid: " + txid);
   return { redeemed: success, result: txid };
 }
