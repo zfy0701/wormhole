@@ -1,6 +1,9 @@
 import { createClient } from "redis";
 import axios from "axios";
-import { connectToRedis } from "./spy_worker";
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+import { hexToUint8Array, uint8ArrayToHex } from "@certusone/wormhole-sdk";
+import { connectToRedis, storeInRedis } from "./spy_worker";
+import { relay } from "./relay/main";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 
@@ -56,6 +59,60 @@ export async function run() {
       }
 
       res.json(result);
+    });
+
+    app.get("/relayvaa/:vaa", async (req, res) => {
+      try {
+        var vaaBuf = Buffer.from(req.params.vaa, "base64");
+        const { parse_vaa } = await importCoreWasm();
+        const parsedVAA = parse_vaa(vaaBuf);
+        var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+        var storeKeyStr = helpers.storeKeyToJson(storeKey);
+        var storePayload = helpers.storePayloadFromVaaBytes(vaaBuf);
+
+        logger.info(
+          "received a rest request to relay vaa: [" +
+            storePayload.vaa_bytes +
+            "]"
+        );
+        await storeInRedis(
+          storeKeyStr,
+          helpers.storePayloadToJson(storePayload)
+        );
+
+        const redisClient = await connectToRedis();
+        var result: string = "Request timed out";
+        for (let count = 0; count < 30; ++count) {
+          await helpers.sleep(1000);
+          await redisClient.select(helpers.WORKING);
+          var value: string = await redisClient.get(storeKeyStr);
+          if (value) {
+            var payload: helpers.StoreWorkingPayload =
+              helpers.workingPayloadFromJson(value);
+            logger.info(
+              "rest relay: count: " + count + ", status: %o",
+              payload.status
+            );
+            if (payload.status != "Pending") {
+              result = payload.status;
+              break;
+            } else {
+              result = "Relay timed out";
+            }
+          } else {
+            logger.info(
+              "rest relay: count: " + count + ", request not in working store"
+            );
+          }
+        }
+
+        await redisClient.quit();
+        res.json(result);
+      } catch (e) {
+        logger.error("failed to process rest relayvaa request, error: %o", e);
+        logger.error("offending request: %o", req);
+        res.json("Request failed");
+      }
     });
 
     app.get("/", (req, res) =>

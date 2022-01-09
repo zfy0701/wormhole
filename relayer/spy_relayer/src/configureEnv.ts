@@ -27,10 +27,15 @@ export function loadChainConfig(): boolean {
 
   try {
     const supportedChains: ChainConfigInfo[] = [];
-    supportedChains.push(configSol());
-    supportedChains.push(configEth());
-    supportedChains.push(configBsc());
-    supportedChains.push(configTerra());
+    configSol(supportedChains);
+    configEth(supportedChains);
+    configTerra(supportedChains);
+    configBsc(supportedChains);
+
+    if (supportedChains.length === 0) {
+      logger.error("loadChainConfig: no chains are enabled!");
+      return false;
+    }
 
     env = { supportedChains: supportedChains };
   } catch (e) {
@@ -46,10 +51,9 @@ export function loadChainConfig(): boolean {
   return true;
 }
 
-function configEth(): ChainConfigInfo {
-  if (!process.env.ETH_NODE_URL) {
-    throw "Missing environment variable ETH_NODE_URL";
-  }
+function configEth(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.ETH_NODE_URL) return;
+
   if (!process.env.ETH_PRIVATE_KEY) {
     throw "Missing environment variable ETH_PRIVATE_KEY";
   }
@@ -57,7 +61,16 @@ function configEth(): ChainConfigInfo {
     throw "Missing environment variable ETH_TOKEN_BRIDGE_ADDRESS";
   }
 
-  return {
+  logger.info(
+    "loaded ETH parameters: chainId: 2, url: [" +
+      process.env.ETH_NODE_URL +
+      "], privateKey: [" +
+      process.env.ETH_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.ETH_TOKEN_BRIDGE_ADDRESS
+  );
+
+  supportedChains.push({
     chainId: 2,
     nodeUrl: process.env.ETH_NODE_URL,
     walletPrivateKey: process.env.ETH_PRIVATE_KEY,
@@ -66,13 +79,12 @@ function configEth(): ChainConfigInfo {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-  };
+  });
 }
 
-function configBsc(): ChainConfigInfo {
-  if (!process.env.BSC_NODE_URL) {
-    throw "Missing environment variable BSC_NODE_URL";
-  }
+function configBsc(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.BSC_NODE_URL) return;
+
   if (!process.env.BSC_PRIVATE_KEY) {
     throw "Missing environment variable BSC_PRIVATE_KEY";
   }
@@ -80,7 +92,16 @@ function configBsc(): ChainConfigInfo {
     throw "Missing environment variable BSC_TOKEN_BRIDGE_ADDRESS";
   }
 
-  return {
+  logger.info(
+    "loaded BSC parameters: chainId: 4, url: [" +
+      process.env.BSC_NODE_URL +
+      "], privateKey: [" +
+      process.env.BSC_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.BSC_TOKEN_BRIDGE_ADDRESS
+  );
+
+  supportedChains.push({
     chainId: 4,
     nodeUrl: process.env.BSC_NODE_URL,
     walletPrivateKey: process.env.BSC_PRIVATE_KEY,
@@ -89,13 +110,12 @@ function configBsc(): ChainConfigInfo {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-  };
+  });
 }
 
-function configSol(): ChainConfigInfo {
-  if (!process.env.SOL_NODE_URL) {
-    throw "Missing environment variable SOL_NODE_URL";
-  }
+function configSol(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.SOL_NODE_URL) return;
+
   if (!process.env.SOL_PRIVATE_KEY) {
     throw "Missing environment variable SOL_PRIVATE_KEY";
   }
@@ -106,7 +126,18 @@ function configSol(): ChainConfigInfo {
     throw "Missing environment variable SOL_BRIDGE_ADDRESS";
   }
 
-  return {
+  logger.info(
+    "loaded SOL parameters: chainId: 1, url: [" +
+      process.env.SOL_NODE_URL +
+      "], privateKey: [" +
+      process.env.SOL_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.SOL_TOKEN_BRIDGE_ADDRESS +
+      "], solBridgeAddress: [" +
+      process.env.SOL_BRIDGE_ADDRESS
+  );
+
+  supportedChains.push({
     chainId: 1,
     nodeUrl: process.env.SOL_NODE_URL,
     walletPrivateKey: process.env.SOL_PRIVATE_KEY,
@@ -116,13 +147,12 @@ function configSol(): ChainConfigInfo {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-  };
+  });
 }
 
-function configTerra(): ChainConfigInfo {
-  if (!process.env.TERRA_NODE_URL) {
-    throw "Missing environment variable TERRA_NODE_URL";
-  }
+function configTerra(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.TERRA_NODE_URL) return;
+
   if (!process.env.TERRA_PRIVATE_KEY) {
     throw "Missing environment variable TERRA_PRIVATE_KEY";
   }
@@ -145,7 +175,24 @@ function configTerra(): ChainConfigInfo {
     throw "Missing environment variable TERRA_GAS_PRICES_URL";
   }
 
-  return {
+  logger.info(
+    "loaded TER parameters: chainId: 3, url: [" +
+      process.env.TERRA_NODE_URL +
+      "], privateKey: [" +
+      process.env.TERRA_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.TERRA_TOKEN_BRIDGE_ADDRESS +
+      "], terraName: [" +
+      process.env.TERRA_NAME +
+      "], terraChainId: [" +
+      process.env.TERRA_CHAIN_ID +
+      "], coin: [" +
+      process.env.TERRA_COIN +
+      "], gasPricesUrl: [" +
+      process.env.TERRA_GAS_PRICES_URL
+  );
+
+  supportedChains.push({
     chainId: 3,
     nodeUrl: process.env.TERRA_NODE_URL,
     walletPrivateKey: process.env.TERRA_PRIVATE_KEY,
@@ -154,5 +201,6 @@ function configTerra(): ChainConfigInfo {
     terraChainId: process.env.TERRA_CHAIN_ID,
     terraCoin: process.env.TERRA_COIN,
     terraGasPriceUrl: process.env.TERRA_GAS_PRICES_URL,
-  };
+  });
 }
+// Listener should check supported target chains, and log that it's dropping something that's not supported.

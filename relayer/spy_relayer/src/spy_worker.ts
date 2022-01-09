@@ -205,3 +205,32 @@ export async function connectToRedis() {
   await rClient.connect();
   return rClient;
 }
+
+export async function storeInRedis(name: string, value: string) {
+  if (!name) {
+    logger.error("storeInRedis: invalid name");
+    return;
+  }
+  if (!value) {
+    logger.error("storeInRedis: invalid value");
+    return;
+  }
+
+  logger.debug("storeInRedis: connecting to redis.");
+  const redisClient = await connectToRedis();
+  if (!redisClient) {
+    logger.error("Failed to connect to redis!");
+    return;
+  }
+  if (!redisClient) {
+    logger.error("storeInRedis: invalid redisClient");
+    return;
+  }
+
+  logger.debug("storeInRedis: storing in redis.");
+  await redisClient.select(helpers.INCOMING);
+  await redisClient.set(name, value);
+
+  await redisClient.quit();
+  logger.debug("storeInRedis: finished storing in redis.");
+}

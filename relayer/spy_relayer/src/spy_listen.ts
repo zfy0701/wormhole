@@ -1,5 +1,5 @@
 import { logger } from "./helpers";
-import { connectToRedis } from "./spy_worker";
+import { storeInRedis } from "./spy_worker";
 import { createClient } from "redis";
 
 import { relay } from "./relay/main";
@@ -23,8 +23,12 @@ import {
 
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
+import { env } from "./configureEnv";
 import * as helpers from "./helpers";
 import { workerData } from "worker_threads";
+
+var targetChains = new Set();
+var vaaUriPrelude: string;
 
 export function init(runListen: boolean): boolean {
   if (!runListen) return true;
@@ -33,6 +37,18 @@ export function init(runListen: boolean): boolean {
     logger.error("Missing environment variable SPY_SERVICE_HOST");
     return false;
   }
+
+  for (var idx = 0; idx < env.supportedChains.length; ++idx) {
+    logger.debug(
+      "will relay vaas to chainId " + env.supportedChains[idx].chainId
+    );
+    targetChains.add(env.supportedChains[idx].chainId);
+  }
+
+  vaaUriPrelude =
+    "http://localhost:" +
+    (process.env.REST_PORT ? process.env.REST_PORT : "4200") +
+    "/relayvaa/";
 
   return true;
 }
@@ -119,91 +135,92 @@ async function processVaa(vaaBytes) {
   logger.debug("processVaa: parsedVAA: %o", parsedVAA);
 
   if (parsedVAA.payload[0] === 1) {
-    var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    logger.debug(
-      "storing: key: [" +
-        storeKey.chain_id +
-        "/" +
-        storeKey.emitter_address +
-        "/" +
-        storeKey.sequence +
-        "], payload: [" +
-        helpers.storePayloadToJson(storePayload) +
-        "]"
-    );
+    var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
+    const vaaUri =
+      vaaUriPrelude + encodeURIComponent(vaaBytes.toString("base64"));
+    if (targetChains.has(transferPayload.targetChain)) {
+      logger.info(
+        "forwarding vaa to relayer: emitter: [" +
+          parsedVAA.emitter_chain +
+          ":" +
+          uint8ArrayToHex(parsedVAA.emitter_address) +
+          "], seqNum: " +
+          parsedVAA.sequence +
+          ", payload: origin: [" +
+          transferPayload.originChain +
+          ":" +
+          transferPayload.originAddress +
+          "], target: [" +
+          transferPayload.targetChain +
+          ":" +
+          transferPayload.targetAddress +
+          "],  amount: " +
+          transferPayload.amount +
+          ", [" +
+          vaaUri +
+          "]"
+      );
 
-    await storeInRedis(
-      helpers.storeKeyToJson(storeKey),
-      helpers.storePayloadToJson(storePayload)
-    );
+      var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+      var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
 
-    // var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
-    // logger.info(
-    //   "transfer: emitter: [" +
-    //     parsedVAA.emitter_chain +
-    //     ":" +
-    //     uint8ArrayToHex(parsedVAA.emitter_address) +
-    //     "], seqNum: " +
-    //     parsedVAA.sequence +
-    //     ", payload: origin: [" +
-    //     transferPayload.originChain +
-    //     ":" +
-    //     transferPayload.originAddress +
-    //     "], target: [" +
-    //     transferPayload.targetChain +
-    //     ":" +
-    //     transferPayload.targetAddress +
-    //     "],  amount: " +
-    //     transferPayload.amount
-    // );
+      logger.debug(
+        "storing: key: [" +
+          storeKey.chain_id +
+          "/" +
+          storeKey.emitter_address +
+          "/" +
+          storeKey.sequence +
+          "], payload: [" +
+          helpers.storePayloadToJson(storePayload) +
+          "]"
+      );
 
-    // logger.info(
-    //   "relaying vaa from chain id %d to chain id " +
-    //     parsedVAA.emitter_chain +
-    //     " to " +
-    //     transferPayload.targetChain
-    // );
-    // try {
-    //   // result is an object that could be jsonified and stored as the status in the completed store. The REST query could return that.
-    //   var result = await relay(storePayload.vaa_bytes);
-    //   logger.info("relay returned: %o", result);
-    // } catch (e) {
-    //   logger.error("failed to relay transfer vaa: %o", e);
-    // }
+      await storeInRedis(
+        helpers.storeKeyToJson(storeKey),
+        helpers.storePayloadToJson(storePayload)
+      );
+
+      // logger.info(
+      //   "relaying vaa from chain id %d to chain id " +
+      //     parsedVAA.emitter_chain +
+      //     " to " +
+      //     transferPayload.targetChain
+      // );
+      // try {
+      //   // result is an object that could be jsonified and stored as the status in the completed store. The REST query could return that.
+      //   var result = await relay(storePayload.vaa_bytes);
+      //   logger.info("relay returned: %o", result);
+      // } catch (e) {
+      //   logger.error("failed to relay transfer vaa: %o", e);
+      // }
+    } else {
+      logger.info(
+        "ignoring vaa with unsupported target chain: emitter: [" +
+          parsedVAA.emitter_chain +
+          ":" +
+          uint8ArrayToHex(parsedVAA.emitter_address) +
+          "], seqNum: " +
+          parsedVAA.sequence +
+          ", payload: origin: [" +
+          transferPayload.originChain +
+          ":" +
+          transferPayload.originAddress +
+          "], target: [" +
+          transferPayload.targetChain +
+          ":" +
+          transferPayload.targetAddress +
+          "],  amount: " +
+          transferPayload.amount +
+          ", [" +
+          vaaUri +
+          "]"
+      );
+    }
   } else {
     logger.debug(
       "dropping vaa, payload type parsedVAA.payload[0]: %o",
       parsedVAA
     );
   }
-}
-
-async function storeInRedis(name: string, value: string) {
-  if (!name) {
-    logger.error("storeInRedis: invalid name");
-    return;
-  }
-  if (!value) {
-    logger.error("storeInRedis: invalid value");
-    return;
-  }
-
-  logger.debug("storeInRedis: connecting to redis.");
-  const redisClient = await connectToRedis();
-  if (!redisClient) {
-    logger.error("Failed to connect to redis!");
-    return;
-  }
-  if (!redisClient) {
-    logger.error("storeInRedis: invalid redisClient");
-    return;
-  }
-
-  logger.debug("storeInRedis: storing in redis.");
-  await redisClient.select(helpers.INCOMING);
-  await redisClient.set(name, value);
-
-  await redisClient.quit();
-  logger.debug("storeInRedis: finished storing in redis.");
 }
