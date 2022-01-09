@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/certusone/wormhole/node/pkg/db"
 	"github.com/certusone/wormhole/node/pkg/notify/discord"
+	"github.com/certusone/wormhole/node/pkg/telemetry"
 	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/zap/zapcore"
 	"log"
@@ -102,6 +103,7 @@ var (
 	tlsProdEnv  *bool
 
 	disableHeartbeatVerify *bool
+	disableTelemetry       *bool
 
 	discordToken   *string
 	discordChannel *string
@@ -175,6 +177,8 @@ func init() {
 
 	disableHeartbeatVerify = NodeCmd.Flags().Bool("disableHeartbeatVerify", false,
 		"Disable heartbeat signature verification (useful during network startup)")
+	disableTelemetry = NodeCmd.Flags().Bool("disableTelemetry", false,
+		"Disable telemetry")
 
 	discordToken = NodeCmd.Flags().String("discordToken", "", "Discord bot token (optional)")
 	discordChannel = NodeCmd.Flags().String("discordChannel", "", "Discord channel name (optional)")
@@ -191,6 +195,10 @@ var (
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
 )
+
+// Hardcoded Logtail (logtail.com) token for prod node telemetry.
+// This token is meant to be public.
+const telemetryToken = "tsg3r9T4m528frdqtxcahUsf"
 
 // "Why would anyone do this?" are famous last words.
 //
@@ -256,6 +264,18 @@ func runNode(cmd *cobra.Command, args []string) {
 
 	// Override the default go-log config, which uses a magic environment variable.
 	ipfslog.SetAllLoggers(lvl)
+
+	// If enabled and a guardian node, enable telemetry for root logger.
+	var telemetryService *telemetry.Service
+	if !*disableTelemetry || !*unsafeDevMode {
+		telemetryService = telemetry.NewTelemetryService(
+			1000,
+			10,
+			telemetryToken,
+		)
+
+		logger = telemetryService.WrapLogger(logger)
+	}
 
 	// Redirect ipfs logs to plain zap
 	ipfslog.SetPrimaryCore(logger.Core())
@@ -566,6 +586,12 @@ func runNode(cmd *cobra.Command, args []string) {
 
 	// Run supervisor.
 	supervisor.New(rootCtx, logger, func(ctx context.Context) error {
+		if telemetryService != nil {
+			if err := supervisor.Run(ctx, "telemetry", telemetryService.Run); err != nil {
+				return err
+			}
+		}
+
 		if err := supervisor.Run(ctx, "p2p", p2p.Run(
 			obsvC, sendC, signedInC, priv, gk, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, *nodeName, *disableHeartbeatVerify, rootCtxCancel)); err != nil {
 			return err
