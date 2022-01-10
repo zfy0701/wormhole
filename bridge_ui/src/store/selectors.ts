@@ -284,6 +284,31 @@ export const selectTransferTargetError = (state: RootState) => {
   if (!state.transfer.targetAddressHex) {
     return "Target account unavailable";
   }
+  if (state.transfer.useRelayer && state.transfer.relayerFee === undefined) {
+    return "Invalid relayer fee.";
+  }
+  if (state.transfer.relayerFee && state.transfer.sourceParsedTokenAccount) {
+    if (
+      parseUnits(
+        state.transfer.amount,
+        state.transfer.sourceParsedTokenAccount.decimals
+      )
+        .add(
+          parseUnits(
+            state.transfer.relayerFee.toString(),
+            state.transfer.sourceParsedTokenAccount.decimals
+          )
+        )
+        .gt(
+          parseUnits(
+            state.transfer.sourceParsedTokenAccount.uiAmountString,
+            state.transfer.sourceParsedTokenAccount.decimals
+          )
+        )
+    ) {
+      return "The amount being transferred plus fees exceeds the wallet's balance.";
+    }
+  }
 };
 export const selectTransferIsTargetComplete = (state: RootState) =>
   !selectTransferTargetError(state);
@@ -297,6 +322,10 @@ export const selectTransferIsRecovery = (state: RootState) =>
   state.transfer.isRecovery;
 export const selectTransferGasPrice = (state: RootState) =>
   state.transfer.gasPrice;
+export const selectTransferUseRelayer = (state: RootState) =>
+  state.transfer.useRelayer;
+export const selectTransferRelayerFee = (state: RootState) =>
+  state.transfer.relayerFee;
 export const selectSolanaTokenMap = (state: RootState) => {
   return state.tokens.solanaTokenMap;
 };

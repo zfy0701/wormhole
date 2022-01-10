@@ -20,6 +20,8 @@ import { getMultipleAccountsRPC } from "../utils/solana";
 import { NATIVE_TERRA_DECIMALS } from "../utils/terra";
 import useIsWalletReady from "./useIsWalletReady";
 import { LCDClient } from "@terra-money/terra.js";
+import { setGasPrice } from "../store/transferSlice";
+import { useDispatch } from "react-redux";
 
 export type GasEstimate = {
   currentGasPrice: string;
@@ -191,19 +193,27 @@ export function useEthereumGasPrice(contract: MethodType, chainId: ChainId) {
   const [estimateResults, setEstimateResults] = useState<GasEstimate | null>(
     null
   );
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (provider && isReady && !estimateResults) {
       getGasEstimates(provider, contract).then(
         (results) => {
           setEstimateResults(results);
+          if (results?.currentGasPrice) {
+            const gasPrice =
+              (results?.currentGasPrice &&
+                parseFloat(results.currentGasPrice)) ||
+              undefined;
+            dispatch(setGasPrice(gasPrice)); //This is so the relayer hook can pull this from the state rather than remount this hook.
+          }
         },
         (error) => {
           console.log(error);
         }
       );
     }
-  }, [provider, isReady, estimateResults, contract]);
+  }, [provider, isReady, estimateResults, contract, dispatch]);
 
   const results = useMemo(() => estimateResults, [estimateResults]);
   return results;
@@ -286,7 +296,8 @@ export async function getGasEstimates(
       highEstimate = parseFloat(
         formatUnits(highEstimateGasAmount * priceInWei.toBigInt(), "ether")
       ).toFixed(4);
-      currentGasPrice = parseFloat(formatUnits(priceInWei, "gwei")).toFixed(0);
+      const gasPriceNum = parseFloat(formatUnits(priceInWei, "gwei"));
+      currentGasPrice = gasPriceNum.toFixed(0);
     }
   }
 

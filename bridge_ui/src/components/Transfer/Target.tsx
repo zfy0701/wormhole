@@ -29,6 +29,7 @@ import { incrementStep, setTargetChain } from "../../store/transferSlice";
 import { CHAINS, CHAINS_BY_ID } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
 import ChainSelect from "../ChainSelect";
+import FeeMethodSelector from "../FeeMethodSelector";
 import KeyAndBalance from "../KeyAndBalance";
 import LowBalanceWarning from "../LowBalanceWarning";
 import SmartAddress from "../SmartAddress";
@@ -98,7 +99,7 @@ function Target() {
   const error = useSelector(selectTransferTargetError);
   const isTargetComplete = useSelector(selectTransferIsTargetComplete);
   const shouldLockFields = useSelector(selectTransferShouldLockFields);
-  const { statusMessage } = useIsWalletReady(targetChain);
+  const { statusMessage, isReady } = useIsWalletReady(targetChain);
   const isLoading = !statusMessage && !targetAssetError && !data;
   const { associatedAccountExists, setAssociatedAccountExists } =
     useAssociatedAccountExistsState(
@@ -168,15 +169,13 @@ function Target() {
           setAssociatedAccountExists={setAssociatedAccountExists}
         />
       ) : null}
-      <Alert severity="info" variant="outlined" className={classes.alert}>
+      {/* <Alert severity="info" variant="outlined" className={classes.alert}>
         <Typography>
           You will have to pay transaction fees on{" "}
           {CHAINS_BY_ID[targetChain].name} to redeem your tokens.
         </Typography>
-        {(isEVMChain(targetChain) || targetChain === CHAIN_ID_TERRA) && (
-          <GasEstimateSummary methodType="transfer" chainId={targetChain} />
-        )}
-      </Alert>
+      </Alert> */}
+      {isEVMChain(targetChain) && !isReady ? null : <FeeMethodSelector />}
       <LowBalanceWarning chainId={targetChain} />
       <ButtonWithLoader
         disabled={!isTargetComplete || !associatedAccountExists}

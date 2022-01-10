@@ -19,6 +19,7 @@ import {
 } from "@certusone/wormhole-sdk";
 import { Alert } from "@material-ui/lab";
 import { WalletContextState } from "@solana/wallet-adapter-react";
+import { TokenAmount } from "@solana/web3.js";
 import { Connection } from "@solana/web3.js";
 import {
   ConnectedWallet,
@@ -38,6 +39,7 @@ import {
   selectTransferIsTargetComplete,
   selectTransferOriginAsset,
   selectTransferOriginChain,
+  selectTransferRelayerFee,
   selectTransferSourceAsset,
   selectTransferSourceChain,
   selectTransferSourceParsedTokenAccount,
@@ -72,26 +74,31 @@ async function evm(
   recipientChain: ChainId,
   recipientAddress: Uint8Array,
   isNative: boolean,
-  chainId: ChainId
+  chainId: ChainId,
+  relayerFee?: string
 ) {
   dispatch(setIsSending(true));
   try {
-    const amountParsed = parseUnits(amount, decimals);
+    const baseAmountParsed = parseUnits(amount, decimals);
+    const feeParsed = parseUnits(relayerFee || "0", decimals);
+    const transferAmountParsed = baseAmountParsed.add(feeParsed);
     const receipt = isNative
       ? await transferFromEthNative(
           getTokenBridgeAddressForChain(chainId),
           signer,
-          amountParsed,
+          transferAmountParsed,
           recipientChain,
-          recipientAddress
+          recipientAddress,
+          feeParsed
         )
       : await transferFromEth(
           getTokenBridgeAddressForChain(chainId),
           signer,
           tokenAddress,
-          amountParsed,
+          transferAmountParsed,
           recipientChain,
-          recipientAddress
+          recipientAddress,
+          feeParsed
         );
     dispatch(
       setTransferTx({ id: receipt.transactionHash, block: receipt.blockNumber })
@@ -140,12 +147,15 @@ async function solana(
   targetAddress: Uint8Array,
   isNative: boolean,
   originAddressStr?: string,
-  originChain?: ChainId
+  originChain?: ChainId,
+  relayerFee?: string
 ) {
   dispatch(setIsSending(true));
   try {
     const connection = new Connection(SOLANA_HOST, "confirmed");
-    const amountParsed = parseUnits(amount, decimals).toBigInt();
+    const baseAmountParsed = parseUnits(amount, decimals);
+    const feeParsed = parseUnits(relayerFee || "0", decimals);
+    const transferAmountParsed = baseAmountParsed.add(feeParsed);
     const originAddress = originAddressStr
       ? zeroPad(hexToUint8Array(originAddressStr), 32)
       : undefined;
@@ -155,9 +165,10 @@ async function solana(
           SOL_BRIDGE_ADDRESS,
           SOL_TOKEN_BRIDGE_ADDRESS,
           payerAddress,
-          amountParsed,
+          transferAmountParsed.toBigInt(),
           targetAddress,
-          targetChain
+          targetChain,
+          feeParsed.toBigInt()
         )
       : transferFromSolana(
           connection,
@@ -166,11 +177,13 @@ async function solana(
           payerAddress,
           fromAddress,
           mintAddress,
-          amountParsed,
+          transferAmountParsed.toBigInt(),
           targetAddress,
           targetChain,
           originAddress,
-          originChain
+          originChain,
+          undefined,
+          feeParsed.toBigInt()
         );
     const transaction = await promise;
     const txid = await signSendAndConfirm(wallet, connection, transaction);
@@ -216,18 +229,22 @@ async function terra(
   amount: string,
   decimals: number,
   targetChain: ChainId,
-  targetAddress: Uint8Array
+  targetAddress: Uint8Array,
+  relayerFee?: string
 ) {
   dispatch(setIsSending(true));
   try {
-    const amountParsed = parseUnits(amount, decimals).toString();
+    const baseAmountParsed = parseUnits(amount, decimals);
+    const feeParsed = parseUnits(relayerFee || "0", decimals);
+    const transferAmountParsed = baseAmountParsed.add(feeParsed);
     const msgs = await transferFromTerra(
       wallet.terraAddress,
       TERRA_TOKEN_BRIDGE_ADDRESS,
       asset,
-      amountParsed,
+      transferAmountParsed.toString(),
       targetChain,
-      targetAddress
+      targetAddress,
+      feeParsed.toString()
     );
 
     const result = await postWithFees(
@@ -289,10 +306,13 @@ export function useHandleTransfer() {
   const sourceParsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
   );
+  const relayerFee = useSelector(selectTransferRelayerFee);
+
   const sourceTokenPublicKey = sourceParsedTokenAccount?.publicKey;
   const decimals = sourceParsedTokenAccount?.decimals;
   const isNative = sourceParsedTokenAccount?.isNativeAsset || false;
   const disabled = !isTargetComplete || isSending || isSendComplete;
+
   const handleTransferClick = useCallback(() => {
     // TODO: we should separate state for transaction vs fetching vaa
     if (
@@ -312,7 +332,8 @@ export function useHandleTransfer() {
         targetChain,
         targetAddress,
         isNative,
-        sourceChain
+        sourceChain,
+        relayerFee
       );
     } else if (
       sourceChain === CHAIN_ID_SOLANA &&
@@ -336,7 +357,8 @@ export function useHandleTransfer() {
         targetAddress,
         isNative,
         originAsset,
-        originChain
+        originChain,
+        relayerFee
       );
     } else if (
       sourceChain === CHAIN_ID_TERRA &&
@@ -353,7 +375,8 @@ export function useHandleTransfer() {
         amount,
         decimals,
         targetChain,
-        targetAddress
+        targetAddress,
+        relayerFee
       );
     } else {
     }
