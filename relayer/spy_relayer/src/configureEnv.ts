@@ -9,6 +9,7 @@ export type RelayerEnvironment = {
 
 export type ChainConfigInfo = {
   chainId: ChainId;
+  chainName: string;
   nodeUrl: string;
   tokenBridgeAddress: string;
   bridgeAddress?: string;
@@ -17,6 +18,7 @@ export type ChainConfigInfo = {
   terraChainId: string;
   terraCoin: string;
   terraGasPriceUrl: string;
+  wrappedAsset: string;
 };
 
 export var env: RelayerEnvironment;
@@ -60,6 +62,12 @@ function configEth(supportedChains: ChainConfigInfo[]) {
   if (!process.env.ETH_TOKEN_BRIDGE_ADDRESS) {
     throw "Missing environment variable ETH_TOKEN_BRIDGE_ADDRESS";
   }
+  if (!process.env.ETH_WRAPPED_ASSET) {
+    throw "Missing environment variable ETH_WRAPPED_ASSET";
+  }
+  if (process.env.ETH_WRAPPED_ASSET.length != 64) {
+    throw "Environment variable ETH_WRAPPED_ASSET is invalid, it must be exactly 32 bytes (64 hex digits)";
+  }
 
   logger.info(
     "loaded ETH parameters: chainId: 2, url: [" +
@@ -67,11 +75,15 @@ function configEth(supportedChains: ChainConfigInfo[]) {
       "], privateKey: [" +
       process.env.ETH_PRIVATE_KEY +
       "], tokenBridgeAddress: [" +
-      process.env.ETH_TOKEN_BRIDGE_ADDRESS
+      process.env.ETH_TOKEN_BRIDGE_ADDRESS +
+      "], wrappedAsset: [" +
+      process.env.ETH_WRAPPED_ASSET +
+      "]"
   );
 
   supportedChains.push({
     chainId: 2,
+    chainName: "ETH",
     nodeUrl: process.env.ETH_NODE_URL,
     walletPrivateKey: process.env.ETH_PRIVATE_KEY,
     tokenBridgeAddress: process.env.ETH_TOKEN_BRIDGE_ADDRESS,
@@ -79,6 +91,7 @@ function configEth(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
+    wrappedAsset: process.env.ETH_WRAPPED_ASSET,
   });
 }
 
@@ -91,6 +104,12 @@ function configBsc(supportedChains: ChainConfigInfo[]) {
   if (!process.env.BSC_TOKEN_BRIDGE_ADDRESS) {
     throw "Missing environment variable BSC_TOKEN_BRIDGE_ADDRESS";
   }
+  if (!process.env.BSC_WRAPPED_ASSET) {
+    throw "Missing environment variable BSC_WRAPPED_ASSET";
+  }
+  if (process.env.BSC_WRAPPED_ASSET.length != 64) {
+    throw "Environment variable BSC_WRAPPED_ASSET is invalid, it must be exactly 32 bytes (64 hex digits)";
+  }
 
   logger.info(
     "loaded BSC parameters: chainId: 4, url: [" +
@@ -98,11 +117,15 @@ function configBsc(supportedChains: ChainConfigInfo[]) {
       "], privateKey: [" +
       process.env.BSC_PRIVATE_KEY +
       "], tokenBridgeAddress: [" +
-      process.env.BSC_TOKEN_BRIDGE_ADDRESS
+      process.env.BSC_TOKEN_BRIDGE_ADDRESS +
+      "], wrappedAsset: [" +
+      process.env.BSC_WRAPPED_ASSET +
+      "]"
   );
 
   supportedChains.push({
     chainId: 4,
+    chainName: "BSC",
     nodeUrl: process.env.BSC_NODE_URL,
     walletPrivateKey: process.env.BSC_PRIVATE_KEY,
     tokenBridgeAddress: process.env.BSC_TOKEN_BRIDGE_ADDRESS,
@@ -110,6 +133,7 @@ function configBsc(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
+    wrappedAsset: process.env.BSC_WRAPPED_ASSET,
   });
 }
 
@@ -134,11 +158,13 @@ function configSol(supportedChains: ChainConfigInfo[]) {
       "], tokenBridgeAddress: [" +
       process.env.SOL_TOKEN_BRIDGE_ADDRESS +
       "], solBridgeAddress: [" +
-      process.env.SOL_BRIDGE_ADDRESS
+      process.env.SOL_BRIDGE_ADDRESS +
+      "]"
   );
 
   supportedChains.push({
     chainId: 1,
+    chainName: "SOL",
     nodeUrl: process.env.SOL_NODE_URL,
     walletPrivateKey: process.env.SOL_PRIVATE_KEY,
     tokenBridgeAddress: process.env.SOL_TOKEN_BRIDGE_ADDRESS,
@@ -147,6 +173,7 @@ function configSol(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
+    wrappedAsset: "",
   });
 }
 
@@ -189,11 +216,13 @@ function configTerra(supportedChains: ChainConfigInfo[]) {
       "], coin: [" +
       process.env.TERRA_COIN +
       "], gasPricesUrl: [" +
-      process.env.TERRA_GAS_PRICES_URL
+      process.env.TERRA_GAS_PRICES_URL +
+      "]"
   );
 
   supportedChains.push({
     chainId: 3,
+    chainName: "TERRA",
     nodeUrl: process.env.TERRA_NODE_URL,
     walletPrivateKey: process.env.TERRA_PRIVATE_KEY,
     tokenBridgeAddress: process.env.TERRA_TOKEN_BRIDGE_ADDRESS,
@@ -201,6 +230,7 @@ function configTerra(supportedChains: ChainConfigInfo[]) {
     terraChainId: process.env.TERRA_CHAIN_ID,
     terraCoin: process.env.TERRA_COIN,
     terraGasPriceUrl: process.env.TERRA_GAS_PRICES_URL,
+    wrappedAsset: "",
   });
 }
 // Listener should check supported target chains, and log that it's dropping something that's not supported.

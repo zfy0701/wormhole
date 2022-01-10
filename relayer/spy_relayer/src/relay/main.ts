@@ -25,7 +25,6 @@ export async function relay(signedVAA: string): Promise<any> {
   if (parsedVAA.payload[0] === 1) {
     var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
 
-    const unwrapNative = false;
     const chainConfigInfo = getChainConfigInfo(transferPayload.targetChain);
     if (!chainConfigInfo) {
       logger.error("relay: improper chain ID: " + transferPayload.targetChain);
@@ -33,6 +32,8 @@ export async function relay(signedVAA: string): Promise<any> {
     }
 
     if (isEVMChain(transferPayload.targetChain)) {
+      const unwrapNative =
+        transferPayload.originAddress == chainConfigInfo.wrappedAsset;
       return await relayEVM(chainConfigInfo, signedVAA, unwrapNative);
     }
 

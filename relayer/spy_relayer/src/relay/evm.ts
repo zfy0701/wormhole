@@ -19,7 +19,12 @@ export async function relayEVM(
     chainConfigInfo.nodeUrl
   );
   logger.info(
-    "relaying to evm, private key: [" + chainConfigInfo.walletPrivateKey + "]"
+    "relaying to " +
+      chainConfigInfo.chainName +
+      (unwrapNative ? ", will unwrap" : "") +
+      ", private key: [" +
+      chainConfigInfo.walletPrivateKey +
+      "]"
   );
   const signer = new ethers.Wallet(chainConfigInfo.walletPrivateKey, provider);
   const receipt = unwrapNative
