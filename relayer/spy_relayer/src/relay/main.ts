@@ -29,7 +29,7 @@ export async function relay(signedVAA: string): Promise<any> {
     const chainConfigInfo = getChainConfigInfo(transferPayload.targetChain);
     if (!chainConfigInfo) {
       logger.error("relay: improper chain ID: " + transferPayload.targetChain);
-      return "invalid chain id";
+      return "Target chain " + transferPayload.targetChain + " not supported";
     }
 
     if (isEVMChain(transferPayload.targetChain)) {

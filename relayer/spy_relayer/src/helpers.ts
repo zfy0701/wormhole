@@ -53,6 +53,104 @@ export function initLogger() {
   logger = winston.createLogger(logConfiguration);
 }
 
+////////////////////////////////// Start of Redist Stuff /////////////////////////////////////////////
+
+import { createClient } from "redis";
+
+var redisHost: string = process.env.REDIS_HOST;
+var redisPort: number = parseInt(process.env.REDIS_PORT);
+
+export function init(): boolean {
+  if (!process.env.REDIS_HOST) {
+    logger.error("Missing environment variable REDIS_HOST");
+    return false;
+  }
+
+  if (!process.env.REDIS_PORT) {
+    logger.error("Missing environment variable REDIS_PORT");
+    return false;
+  }
+
+  redisHost = process.env.REDIS_HOST;
+  redisPort = parseInt(process.env.REDIS_PORT);
+  logger.info("will connect to redis at [" + redisHost + ":" + redisPort + "]");
+  return true;
+}
+
+export async function connectToRedis() {
+  var rClient;
+  try {
+    rClient = createClient({
+      socket: {
+        host: redisHost,
+        port: redisPort,
+      },
+    });
+
+    rClient.on("connect", function (err) {
+      if (err) {
+        logger.error(
+          "connectToRedis: failed to connect to host [" +
+            redisHost +
+            "], port [" +
+            redisPort +
+            "]: %o",
+          err
+        );
+      }
+    });
+
+    await rClient.connect();
+  } catch (e) {
+    logger.error(
+      "connectToRedis: failed to connect to host [" +
+        redisHost +
+        "], port [" +
+        redisPort +
+        "]: %o",
+      e
+    );
+  }
+
+  return rClient;
+}
+
+export async function storeInRedis(name: string, value: string) {
+  if (!name) {
+    logger.error("storeInRedis: invalid name");
+    return;
+  }
+  if (!value) {
+    logger.error("storeInRedis: invalid value");
+    return;
+  }
+
+  logger.debug("storeInRedis: connecting to redis.");
+  const redisClient = await connectToRedis();
+  if (!redisClient) {
+    logger.error("Failed to connect to redis!");
+    return;
+  }
+
+  try {
+    logger.debug("storeInRedis: storing in redis.");
+    await redisClient.select(INCOMING);
+    await redisClient.set(name, value);
+
+    await redisClient.quit();
+    logger.debug("storeInRedis: finished storing in redis.");
+  } catch (e) {
+    logger.error(
+      "storeInRedis: failed to store to host [" +
+        redisHost +
+        "], port [" +
+        redisPort +
+        "]: %o",
+      e
+    );
+  }
+}
+
 ////////////////////////////////// Start of Other Helpful Stuff //////////////////////////////////////
 import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 

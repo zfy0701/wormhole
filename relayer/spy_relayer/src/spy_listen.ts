@@ -1,9 +1,3 @@
-import { logger } from "./helpers";
-import { storeInRedis } from "./spy_worker";
-import { createClient } from "redis";
-
-import { relay } from "./relay/main";
-
 import {
   ChainId,
   CHAIN_ID_SOLANA,
@@ -23,11 +17,13 @@ import {
 
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
+import { logger } from "./helpers";
 import { env } from "./configureEnv";
 import * as helpers from "./helpers";
-import { workerData } from "worker_threads";
+import { relay } from "./relay/main";
+import { BigNumber } from "ethers";
 
-var targetChains = new Set();
+var minimumFee: BigInt = 0n;
 var vaaUriPrelude: string;
 
 export function init(runListen: boolean): boolean {
@@ -38,11 +34,9 @@ export function init(runListen: boolean): boolean {
     return false;
   }
 
-  for (var idx = 0; idx < env.supportedChains.length; ++idx) {
-    logger.debug(
-      "will relay vaas to chainId " + env.supportedChains[idx].chainId
-    );
-    targetChains.add(env.supportedChains[idx].chainId);
+  if (process.env.SPY_MIN_FEES) {
+    minimumFee = BigInt(process.env.SPY_MIN_FEES);
+    logger.info("will only process vaas where fee is at least " + minimumFee);
   }
 
   vaaUriPrelude =
@@ -135,10 +129,15 @@ async function processVaa(vaaBytes) {
   logger.debug("processVaa: parsedVAA: %o", parsedVAA);
 
   if (parsedVAA.payload[0] === 1) {
-    var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
     const vaaUri =
       vaaUriPrelude + encodeURIComponent(vaaBytes.toString("base64"));
-    if (targetChains.has(transferPayload.targetChain)) {
+
+    var payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+    var transferPayload = parseTransferPayload(payloadBuffer);
+    var gotFee: boolean;
+    var fee: bigint;
+    [gotFee, fee] = getFee(payloadBuffer);
+    if (gotFee && fee >= minimumFee) {
       logger.info(
         "forwarding vaa to relayer: emitter: [" +
           parsedVAA.emitter_chain +
@@ -156,6 +155,8 @@ async function processVaa(vaaBytes) {
           transferPayload.targetAddress +
           "],  amount: " +
           transferPayload.amount +
+          "],  fee: " +
+          fee +
           ", [" +
           vaaUri +
           "]"
@@ -176,7 +177,7 @@ async function processVaa(vaaBytes) {
           "]"
       );
 
-      await storeInRedis(
+      await helpers.storeInRedis(
         helpers.storeKeyToJson(storeKey),
         helpers.storePayloadToJson(storePayload)
       );
@@ -196,7 +197,11 @@ async function processVaa(vaaBytes) {
       // }
     } else {
       logger.info(
-        "ignoring vaa with unsupported target chain: emitter: [" +
+        "ignoring vaa because fee of " +
+          fee +
+          " is less than the minimum of " +
+          minimumFee +
+          ": emitter: [" +
           parsedVAA.emitter_chain +
           ":" +
           uint8ArrayToHex(parsedVAA.emitter_address) +
@@ -212,6 +217,8 @@ async function processVaa(vaaBytes) {
           transferPayload.targetAddress +
           "],  amount: " +
           transferPayload.amount +
+          "],  fee: " +
+          fee +
           ", [" +
           vaaUri +
           "]"
@@ -223,4 +230,25 @@ async function processVaa(vaaBytes) {
       parsedVAA
     );
   }
+}
+
+function getFee(arr: Buffer): [boolean, bigint] {
+  // From parseTransferPayload() in sdk/js/src/utils/parseVaa.ts:
+  //     0   u256     amount
+  //     32  [u8; 32] token_address
+  //     64  u16      token_chain
+  //     66  [u8; 32] recipient
+  //     98  u16      recipient_chain
+  //     100 u256     fee`
+
+  var fee: bigint;
+  try {
+    fee = BigNumber.from(arr.slice(101, 101 + 32)).toBigInt();
+  } catch (e) {
+    logger.error("failed to evaluate fees in vaa: %o", e);
+    logger.error("offending payload: %o", arr);
+    return [false, 0n];
+  }
+
+  return [true, fee];
 }

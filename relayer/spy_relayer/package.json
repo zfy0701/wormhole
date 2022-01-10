@@ -5,11 +5,10 @@
   "main": "spy_relay.js",
   "scripts": {
     "build": "tsc",
-    "spy_relay": "NODE_ENV=localhost node lib/spy_relay.js",
+    "spy_relay": "node lib/spy_relay.js",
     "tilt_relay": "NODE_ENV=tilt node lib/spy_relay.js",
     "listen_only": "node lib/spy_relay.js --listen_only",
-    "worker_only": "node lib/spy_relay.js --worker_only",
-    "rest_only": "node lib/spy_relay.js --rest_only",
+    "relay_only": "node lib/spy_relay.js --relay_only",
     "test": "jest --config jestconfig.json --verbose"
   },
   "author": "",

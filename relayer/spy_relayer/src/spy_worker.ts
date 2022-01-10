@@ -20,11 +20,10 @@ import {
   setDefaultWasm,
 } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
-import { createClient } from "redis";
-
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
+import { loadChainConfig } from "./configureEnv";
 import { relay } from "./relay/main";
 
 var redisHost: string;
@@ -46,6 +45,8 @@ export function init(runWorker: boolean): boolean {
   redisHost = process.env.REDIS_HOST;
   redisPort = parseInt(process.env.REDIS_PORT);
 
+  if (!loadChainConfig()) return false;
+
   return true;
 }
 
@@ -62,7 +63,7 @@ export async function run() {
     logger.info("starting worker " + workerIdx);
     (async () => {
       let myWorkerIdx = workerIdx;
-      const redisClient = await connectToRedis();
+      const redisClient = await helpers.connectToRedis();
       if (!redisClient) {
         logger.error("[" + myWorkerIdx + "] Failed to connect to redis!");
         return;
@@ -76,38 +77,34 @@ export async function run() {
             logger.debug(
               "[" + myWorkerIdx + "] SI: " + si_key + " =>" + si_value
             );
-            // Get result from evaluation algorithm
-            // If true, then do the transfer
-            const shouldDo = evaluate(si_value);
-            if (shouldDo) {
-              // Move this entry to from incoming store to working store
-              await redisClient.select(helpers.INCOMING);
-              if ((await redisClient.del(si_key)) === 0) {
-                logger.info(
-                  "[" +
-                    myWorkerIdx +
-                    "] The key [" +
-                    si_key +
-                    "] no longer exists in INCOMING"
-                );
-                return;
-              }
-              await redisClient.select(helpers.WORKING);
-              // If this VAA is already in the working store, then no need to add it again.
-              // This handles the case of duplicate VAAs from multiple guardians
-              const checkVal = await redisClient.get(si_key);
-              if (!checkVal) {
-                var oldPayload = helpers.storePayloadFromJson(si_value);
-                var newPayload: helpers.StoreWorkingPayload;
-                newPayload = helpers.initWorkingPayload();
-                newPayload.vaa_bytes = oldPayload.vaa_bytes;
-                await redisClient.set(
-                  si_key,
-                  helpers.workingPayloadToJson(newPayload)
-                );
-                // Process the request
-                await processRequest(myWorkerIdx, redisClient, si_key);
-              }
+
+            // Move this entry to from incoming store to working store
+            await redisClient.select(helpers.INCOMING);
+            if ((await redisClient.del(si_key)) === 0) {
+              logger.info(
+                "[" +
+                  myWorkerIdx +
+                  "] The key [" +
+                  si_key +
+                  "] no longer exists in INCOMING"
+              );
+              return;
+            }
+            await redisClient.select(helpers.WORKING);
+            // If this VAA is already in the working store, then no need to add it again.
+            // This handles the case of duplicate VAAs from multiple guardians
+            const checkVal = await redisClient.get(si_key);
+            if (!checkVal) {
+              var oldPayload = helpers.storePayloadFromJson(si_value);
+              var newPayload: helpers.StoreWorkingPayload;
+              newPayload = helpers.initWorkingPayload();
+              newPayload.vaa_bytes = oldPayload.vaa_bytes;
+              await redisClient.set(
+                si_key,
+                helpers.workingPayloadToJson(newPayload)
+              );
+              // Process the request
+              await processRequest(myWorkerIdx, redisClient, si_key);
             }
           } else {
             logger.error("[" + myWorkerIdx + "] No si_keyval returned!");
@@ -123,17 +120,6 @@ export async function run() {
     // Stagger the threads so they don't all wake up at once
     await helpers.sleep(500);
   }
-}
-
-function evaluate(blob: string) {
-  // logger.debug("Checking [" + blob + "]");
-  // if (blob.startsWith("01000000000100e", 14)) {
-  // if (Math.floor(Math.random() * 5) == 1) {
-  // logger.debug("Evaluated true...");
-  return true;
-  // }
-  // logger.info("Evaluated false...");
-  // return false;
 }
 
 async function processRequest(myWorkerIdx: number, rClient, key: string) {
@@ -184,53 +170,4 @@ async function processRequest(myWorkerIdx: number, rClient, key: string) {
   payload.timestamp = new Date().toString();
   value = helpers.workingPayloadToJson(payload);
   await rClient.set(key, value);
-}
-
-export async function connectToRedis() {
-  var rClient = createClient({
-    socket: {
-      host: redisHost,
-      port: redisPort,
-    },
-  });
-
-  rClient.on("connect", function (err) {
-    if (err) {
-      logger.error("Redis writer client failed to connect: %o", err);
-    } else {
-      logger.debug("Redis writer client Connected");
-    }
-  });
-
-  await rClient.connect();
-  return rClient;
-}
-
-export async function storeInRedis(name: string, value: string) {
-  if (!name) {
-    logger.error("storeInRedis: invalid name");
-    return;
-  }
-  if (!value) {
-    logger.error("storeInRedis: invalid value");
-    return;
-  }
-
-  logger.debug("storeInRedis: connecting to redis.");
-  const redisClient = await connectToRedis();
-  if (!redisClient) {
-    logger.error("Failed to connect to redis!");
-    return;
-  }
-  if (!redisClient) {
-    logger.error("storeInRedis: invalid redisClient");
-    return;
-  }
-
-  logger.debug("storeInRedis: storing in redis.");
-  await redisClient.select(helpers.INCOMING);
-  await redisClient.set(name, value);
-
-  await redisClient.quit();
-  logger.debug("storeInRedis: finished storing in redis.");
 }
