@@ -25,6 +25,7 @@ import { BigNumber } from "ethers";
 
 var minimumFee: BigInt = 0n;
 var vaaUriPrelude: string;
+var whMap = new Map<string, string>();
 
 export function init(runListen: boolean): boolean {
   if (!runListen) return true;
@@ -96,6 +97,26 @@ export async function run() {
       logger.info("processing all signed VAAs");
     }
 
+    if (process.env.WHITE_LISTED_CONTRACTS) {
+      const parsedJsonContracts = eval(process.env.WHITE_LISTED_CONTRACTS);
+      logger.info("Attempting to parse white listed contracts...");
+
+      for (var i = 0; i < parsedJsonContracts.length; i++) {
+        var myChainId = parseInt(parsedJsonContracts[i].chain_id) as ChainId;
+        var myContractAddresses = parsedJsonContracts[i].white_list;
+        whMap[myChainId] = myContractAddresses;
+        logger.info(
+          "adding whitelist: chainId: [" +
+            myChainId +
+            "] => whiteList: [" +
+            myContractAddresses +
+            "]"
+        );
+      }
+    } else {
+      logger.info("There are no white listed contracts provisioned.");
+    }
+
     const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
     const stream = await subscribeSignedVAA(client, filter);
 
@@ -136,6 +157,26 @@ async function processVaa(vaaBytes) {
     var transferPayload = parseTransferPayload(payloadBuffer);
     var gotFee: boolean;
     var fee: bigint;
+
+    // Check to see if this is a whitelisted contract
+    var listOfAddresses: string;
+    logger.info(
+      "Looking for whitelisted contracts for chainId: " +
+        transferPayload.originChain
+    );
+    listOfAddresses = whMap[transferPayload.originChain];
+    if (listOfAddresses.length === 0) {
+      logger.info(
+        "listOfAddresses is empty for chainId: " + transferPayload.originChain
+      );
+    }
+    if (listOfAddresses.includes(transferPayload.originAddress)) {
+      logger.info("Found whitelisted contract");
+    } else {
+      logger.info(
+        "Did not find whitelisted contract: " + transferPayload.originAddress
+      );
+    }
     [gotFee, fee] = getFee(payloadBuffer);
     if (gotFee && fee >= minimumFee) {
       logger.info(
