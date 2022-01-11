@@ -1,4 +1,12 @@
-import { ChainId } from "@certusone/wormhole-sdk";
+import {
+  ChainId,
+  CHAIN_ID_AVAX,
+  CHAIN_ID_BSC,
+  CHAIN_ID_ETH,
+  // CHAIN_ID_OASIS,
+  CHAIN_ID_POLYGON,
+  nativeToHexString,
+} from "@certusone/wormhole-sdk";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
@@ -33,6 +41,9 @@ export function loadChainConfig(): boolean {
     configEth(supportedChains);
     configTerra(supportedChains);
     configBsc(supportedChains);
+    configPolygon(supportedChains);
+    configAvax(supportedChains);
+    // configOasis(supportedChains);
 
     if (supportedChains.length === 0) {
       logger.error("loadChainConfig: no chains are enabled!");
@@ -65,9 +76,11 @@ function configEth(supportedChains: ChainConfigInfo[]) {
   if (!process.env.ETH_WRAPPED_ASSET) {
     throw "Missing environment variable ETH_WRAPPED_ASSET";
   }
-  if (process.env.ETH_WRAPPED_ASSET.length != 64) {
-    throw "Environment variable ETH_WRAPPED_ASSET is invalid, it must be exactly 32 bytes (64 hex digits)";
-  }
+
+  var wrappedAsset = nativeToHexString(
+    process.env.ETH_WRAPPED_ASSET,
+    CHAIN_ID_ETH
+  );
 
   logger.info(
     "loaded ETH parameters: chainId: 2, url: [" +
@@ -78,6 +91,8 @@ function configEth(supportedChains: ChainConfigInfo[]) {
       process.env.ETH_TOKEN_BRIDGE_ADDRESS +
       "], wrappedAsset: [" +
       process.env.ETH_WRAPPED_ASSET +
+      "], which is [" +
+      wrappedAsset +
       "]"
   );
 
@@ -107,9 +122,11 @@ function configBsc(supportedChains: ChainConfigInfo[]) {
   if (!process.env.BSC_WRAPPED_ASSET) {
     throw "Missing environment variable BSC_WRAPPED_ASSET";
   }
-  if (process.env.BSC_WRAPPED_ASSET.length != 64) {
-    throw "Environment variable BSC_WRAPPED_ASSET is invalid, it must be exactly 32 bytes (64 hex digits)";
-  }
+
+  var wrappedAsset = nativeToHexString(
+    process.env.BSC_WRAPPED_ASSET,
+    CHAIN_ID_BSC
+  );
 
   logger.info(
     "loaded BSC parameters: chainId: 4, url: [" +
@@ -120,6 +137,8 @@ function configBsc(supportedChains: ChainConfigInfo[]) {
       process.env.BSC_TOKEN_BRIDGE_ADDRESS +
       "], wrappedAsset: [" +
       process.env.BSC_WRAPPED_ASSET +
+      "], which is [" +
+      wrappedAsset +
       "]"
   );
 
@@ -233,4 +252,143 @@ function configTerra(supportedChains: ChainConfigInfo[]) {
     wrappedAsset: "",
   });
 }
-// Listener should check supported target chains, and log that it's dropping something that's not supported.
+
+function configPolygon(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.POLY_NODE_URL) return;
+
+  if (!process.env.POLY_PRIVATE_KEY) {
+    throw "Missing environment variable POLY_PRIVATE_KEY";
+  }
+  if (!process.env.POLY_TOKEN_BRIDGE_ADDRESS) {
+    throw "Missing environment variable POLY_TOKEN_BRIDGE_ADDRESS";
+  }
+  if (!process.env.POLY_WRAPPED_ASSET) {
+    throw "Missing environment variable POLY_WRAPPED_ASSET";
+  }
+
+  var wrappedAsset = nativeToHexString(
+    process.env.POLY_WRAPPED_ASSET,
+    CHAIN_ID_POLYGON
+  );
+
+  logger.info(
+    "loaded POLY parameters: chainId: 4, url: [" +
+      process.env.POLY_NODE_URL +
+      "], privateKey: [" +
+      process.env.POLY_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.POLY_TOKEN_BRIDGE_ADDRESS +
+      "], wrappedAsset: [" +
+      process.env.POLY_WRAPPED_ASSET +
+      "], which is [" +
+      wrappedAsset +
+      "]"
+  );
+
+  supportedChains.push({
+    chainId: 5,
+    chainName: "POLY",
+    nodeUrl: process.env.POLY_NODE_URL,
+    walletPrivateKey: process.env.POLY_PRIVATE_KEY,
+    tokenBridgeAddress: process.env.POLY_TOKEN_BRIDGE_ADDRESS,
+    terraName: "",
+    terraChainId: "",
+    terraCoin: "",
+    terraGasPriceUrl: "",
+    wrappedAsset: process.env.POLY_WRAPPED_ASSET,
+  });
+}
+
+function configAvax(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.AVAX_NODE_URL) return;
+
+  if (!process.env.AVAX_PRIVATE_KEY) {
+    throw "Missing environment variable AVAX_PRIVATE_KEY";
+  }
+  if (!process.env.AVAX_TOKEN_BRIDGE_ADDRESS) {
+    throw "Missing environment variable AVAX_TOKEN_BRIDGE_ADDRESS";
+  }
+  if (!process.env.AVAX_WRAPPED_ASSET) {
+    throw "Missing environment variable AVAX_WRAPPED_ASSET";
+  }
+
+  var wrappedAsset = nativeToHexString(
+    process.env.AVAX_WRAPPED_ASSET,
+    CHAIN_ID_AVAX
+  );
+
+  logger.info(
+    "loaded AVAX parameters: chainId: 4, url: [" +
+      process.env.AVAX_NODE_URL +
+      "], privateKey: [" +
+      process.env.AVAX_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.AVAX_TOKEN_BRIDGE_ADDRESS +
+      "], wrappedAsset: [" +
+      process.env.AVAX_WRAPPED_ASSET +
+      "], which is [" +
+      wrappedAsset +
+      "]"
+  );
+
+  supportedChains.push({
+    chainId: 6,
+    chainName: "AVAX",
+    nodeUrl: process.env.AVAX_NODE_URL,
+    walletPrivateKey: process.env.AVAX_PRIVATE_KEY,
+    tokenBridgeAddress: process.env.AVAX_TOKEN_BRIDGE_ADDRESS,
+    terraName: "",
+    terraChainId: "",
+    terraCoin: "",
+    terraGasPriceUrl: "",
+    wrappedAsset: process.env.POLY_WRAPPED_ASSET,
+  });
+}
+
+/*
+function configOasis(supportedChains: ChainConfigInfo[]) {
+  if (!process.env.OASIS_NODE_URL) return;
+
+  if (!process.env.OASIS_PRIVATE_KEY) {
+    throw "Missing environment variable OASIS_PRIVATE_KEY";
+  }
+  if (!process.env.OASIS_TOKEN_BRIDGE_ADDRESS) {
+    throw "Missing environment variable OASIS_TOKEN_BRIDGE_ADDRESS";
+  }
+  if (!process.env.OASIS_WRAPPED_ASSET) {
+    throw "Missing environment variable OASIS_WRAPPED_ASSET";
+  }
+
+  var wrappedAsset = nativeToHexString(
+    process.env.OASIS_WRAPPED_ASSET,
+    CHAIN_ID_OASIS
+  );
+
+  logger.info(
+    "loaded OASIS parameters: chainId: 4, url: [" +
+      process.env.OASIS_NODE_URL +
+      "], privateKey: [" +
+      process.env.OASIS_PRIVATE_KEY +
+      "], tokenBridgeAddress: [" +
+      process.env.OASIS_TOKEN_BRIDGE_ADDRESS +
+      "], wrappedAsset: [" +
+      process.env.OASIS_WRAPPED_ASSET +
+      "], which is [" +
+      wrappedAsset +
+      "]"
+  );
+
+  supportedChains.push({
+    chainId: 7,
+    chainName: "OASIS",
+    nodeUrl: process.env.OASIS_NODE_URL,
+    walletPrivateKey: process.env.OASIS_PRIVATE_KEY,
+    tokenBridgeAddress: process.env.OASIS_TOKEN_BRIDGE_ADDRESS,
+    terraName: "",
+    terraChainId: "",
+    terraCoin: "",
+    terraGasPriceUrl: "",
+    wrappedAsset: process.env.POLY_WRAPPED_ASSET,
+  });
+}
+*/
