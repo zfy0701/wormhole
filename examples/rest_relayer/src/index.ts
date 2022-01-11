@@ -17,7 +17,7 @@ or relay arbitrary VAAs, rather than just Token Bridge VAAs.
 
 This application serves provide a skeleton
 upon which more complex relayers can be built, and also serves 
-to demonstrate how to use the Wormhome Typescript SDK.
+to demonstrate how to use the Wormhole Typescript SDK.
 
 For a wordier & simpler relayer example, you may want to reference the basicRelayer.ts file
 inside examples/core
