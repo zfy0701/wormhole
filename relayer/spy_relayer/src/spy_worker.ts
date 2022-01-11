@@ -105,6 +105,10 @@ export async function run() {
               );
               // Process the request
               await processRequest(myWorkerIdx, redisClient, si_key);
+            } else {
+              logger.debug(
+                "dropping request [" + si_key + "] as already processed"
+              );
             }
           } else {
             logger.error("[" + myWorkerIdx + "] No si_keyval returned!");

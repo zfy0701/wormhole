@@ -224,6 +224,8 @@ async function processVaa(vaaBytes) {
           "]"
       );
     }
+  } else if (isPyth(parsedVAA.payload)) {
+    logger.debug("dropping pyth message");
   } else {
     logger.debug(
       "dropping vaa, payload type parsedVAA.payload[0]: %o",
@@ -251,4 +253,19 @@ function getFee(arr: Buffer): [boolean, bigint] {
   }
 
   return [true, fee];
+}
+
+function isPyth(payload): boolean {
+  if (payload.length < 4) return false;
+  if (
+    payload[0] === 80 &&
+    payload[1] === 50 &&
+    payload[2] === 87 &&
+    payload[3] === 72
+  ) {
+    // P2WH
+    return true;
+  }
+
+  return false;
 }
