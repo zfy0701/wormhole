@@ -279,17 +279,17 @@ if spy_relayer:
     )
 
     docker_build(
-        ref = "spy-relayer",
+        ref = "spy-relay-image",
         context = ".",
         only = ["./relayer/spy_relayer"],
         dockerfile = "relayer/spy_relayer/Dockerfile",
         live_update = []
     )
 
-    k8s_yaml_with_ns("devnet/spy-relayer.yaml")
+    k8s_yaml_with_ns("devnet/spy-listener.yaml")
 
     k8s_resource(
-        "spy-relayer",
+        "spy-listener",
         resource_deps = ["proto-gen", "guardian", "redis"],
         port_forwards = [
             port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
@@ -299,6 +299,16 @@ if spy_relayer:
         trigger_mode = trigger_mode,
     )
 
+    k8s_yaml_with_ns("devnet/spy-relayer.yaml")
+
+    k8s_resource(
+        "spy-relayer",
+        resource_deps = ["proto-gen", "guardian", "redis"],
+        port_forwards = [
+            port_forward(6063, container_port = 6060, name = "Debug/Status Server [:6063]", host = webHost),
+        ],
+        trigger_mode = trigger_mode,
+    )
 
 k8s_yaml_with_ns("devnet/eth-devnet.yaml")
 

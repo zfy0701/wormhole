@@ -8,32 +8,16 @@ import { logger } from "./helpers";
 
 setDefaultWasm("node");
 
-var configFile: string;
-var node: string = process.env.NODE_ENV ? process.env.NODE_ENV : "localhost";
-if (process.env.SPY_RELAY_CONFIG) {
-  configFile = process.env.SPY_RELAY_CONFIG;
-} else if (node === "tilt") {
-  configFile = ".env.tilt";
-} else {
-  configFile = ".env.sample";
-}
+var configFile: string = process.env.SPY_RELAY_CONFIG
+  ? process.env.SPY_RELAY_CONFIG
+  : ".env.sample";
 
-console.log(
-  "node environment is [%s], loading config file [%s]",
-  node,
-  configFile
-);
+console.log("loading config file [%s]", configFile);
 require("dotenv").config({ path: configFile });
 
 // Set up the logger.
 helpers.initLogger();
-logger.info(
-  "spy_relay running in node environment [" +
-    node +
-    "] using config file [" +
-    configFile +
-    "]"
-);
+logger.info("spy_relay using config file [" + configFile + "]");
 
 // Load the relay config data.
 var runListen: boolean = true;

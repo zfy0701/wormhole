@@ -2,43 +2,47 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: spy-relayer
+  name: spy-listener
   labels:
-    app: spy-relayer
+    app: spy-listener
 spec:
   clusterIP: None
   selector:
-    app: spy-relayer
+    app: spy-listener
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: spy-relayer
+  name: spy-listener
 spec:
   selector:
     matchLabels:
-      app: spy-relayer
-  serviceName: spy-relayer
+      app: spy-listener
+  serviceName: spy-listener
   replicas: 1
   template:
     metadata:
       labels:
-        app: spy-relayer
+        app: spy-listener
     spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
       containers:
-        - name: spy-relayer
+        - name: spy-listener
           image: spy-relay-image
           command:
             - npm
             - run
             - --prefix
             - /app/relayer/spy_relayer/
-            - tilt_relayer
+            - tilt_listener
           tty: true
           readinessProbe:
             tcpSocket:
               port: 2000
             periodSeconds: 1
             failureThreshold: 300
+          ports:
+            - containerPort: 4201
+              name: rest
+              protocol: TCP
