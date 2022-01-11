@@ -294,6 +294,7 @@ if spy_relayer:
         port_forwards = [
             port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
             port_forward(7073, name = "Spy gRPC [:7073]", host = webHost),
+            port_forward(4201, name = "REST [:4201]", host = webHost),
         ],
         trigger_mode = trigger_mode,
     )

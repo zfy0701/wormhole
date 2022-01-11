@@ -42,3 +42,7 @@ spec:
               port: 2000
             periodSeconds: 1
             failureThreshold: 300
+          ports:
+            - containerPort: 4201
+              name: rest
+              protocol: TCP
