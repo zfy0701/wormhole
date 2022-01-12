@@ -28,6 +28,7 @@ var minimumFee: BigInt = 0n;
 var vaaUriPrelude: string;
 var whMap = new Map<string, string>();
 var metrics: PromHelper;
+var usingWhiteList = false;
 
 export function init(runListen: boolean): boolean {
   if (!runListen) return true;
@@ -101,6 +102,7 @@ export async function run(ph: PromHelper) {
     }
 
     if (process.env.WHITE_LISTED_CONTRACTS) {
+      usingWhiteList = true;
       const parsedJsonContracts = eval(process.env.WHITE_LISTED_CONTRACTS);
       logger.info("Attempting to parse white listed contracts...");
 
@@ -162,24 +164,28 @@ async function processVaa(vaaBytes) {
     var gotFee: boolean;
     var fee: bigint;
 
-    // Check to see if this is a whitelisted contract
-    var listOfAddresses: string;
-    logger.info(
-      "Looking for whitelisted contracts for chainId: " +
-        transferPayload.originChain
-    );
-    listOfAddresses = whMap[transferPayload.originChain];
-    if (!listOfAddresses || listOfAddresses.length === 0) {
+    if (usingWhiteList) {
+      // Check to see if this is a whitelisted contract
+      var listOfAddresses: string;
       logger.info(
-        "listOfAddresses is empty for chainId: " + transferPayload.originChain
+        "Looking for whitelisted contracts for chainId: " +
+          transferPayload.originChain
       );
-    }
-    if (listOfAddresses.includes(transferPayload.originAddress)) {
-      logger.info("Found whitelisted contract");
-    } else {
-      logger.info(
-        "Did not find whitelisted contract: " + transferPayload.originAddress
-      );
+      listOfAddresses = whMap[transferPayload.originChain];
+      if (!listOfAddresses || listOfAddresses.length === 0) {
+        logger.info(
+          "listOfAddresses is empty for chainId: " + transferPayload.originChain
+        );
+        return;
+      }
+      if (listOfAddresses.includes(transferPayload.originAddress)) {
+        logger.info("Found whitelisted contract");
+      } else {
+        logger.info(
+          "Did not find whitelisted contract: " + transferPayload.originAddress
+        );
+        return;
+      }
     }
     [gotFee, fee] = getFee(payloadBuffer);
     if (gotFee && fee >= minimumFee) {
