@@ -169,7 +169,7 @@ async function processVaa(vaaBytes) {
         transferPayload.originChain
     );
     listOfAddresses = whMap[transferPayload.originChain];
-    if (listOfAddresses.length === 0) {
+    if (!listOfAddresses || listOfAddresses.length === 0) {
       logger.info(
         "listOfAddresses is empty for chainId: " + transferPayload.originChain
       );
