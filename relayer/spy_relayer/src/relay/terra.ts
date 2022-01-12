@@ -37,6 +37,20 @@ export async function relayTerra(
       "]"
   );
 
+  logger.debug("relayTerra: checking to see if vaa has already been redeemed.");
+  var alreadyRedeemed = await getIsTransferCompletedTerra(
+    chainConfigInfo.tokenBridgeAddress,
+    signedVaaArray,
+    wallet.key.accAddress,
+    lcd,
+    chainConfigInfo.terraGasPriceUrl
+  );
+
+  if (alreadyRedeemed) {
+    logger.info("relayTerra: vaa has already been redeemed!");
+    return { redeemed: true, result: "already redeemed" };
+  }
+
   const msg = await redeemOnTerra(
     chainConfigInfo.tokenBridgeAddress,
     wallet.key.accAddress,
@@ -68,8 +82,8 @@ export async function relayTerra(
   logger.debug("relayTerra: broadcasting");
   const receipt = await lcd.tx.broadcast(tx);
 
-  logger.debug("relayTerra: awaiting transfer complete");
-  var success = await await getIsTransferCompletedTerra(
+  logger.debug("relayTerra: checking to see if the transaction is complete.");
+  var success = await getIsTransferCompletedTerra(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
     wallet.key.accAddress,
@@ -77,11 +91,6 @@ export async function relayTerra(
     chainConfigInfo.terraGasPriceUrl
   );
 
-  logger.info(
-    "relayTerra: redeemed on terra: success:",
-    success,
-    ", receipt:",
-    receipt
-  );
+  logger.info("relayTerra: success: " + success + ", receipt: %o", receipt);
   return { redeemed: success, result: receipt };
 }

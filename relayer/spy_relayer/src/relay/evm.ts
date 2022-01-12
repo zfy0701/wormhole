@@ -19,14 +19,38 @@ export async function relayEVM(
     chainConfigInfo.nodeUrl
   );
   logger.info(
-    "relaying to " +
+    "relayEVM(" +
       chainConfigInfo.chainName +
+      "): " +
       (unwrapNative ? ", will unwrap" : "") +
       ", private key: [" +
       chainConfigInfo.walletPrivateKey +
       "]"
   );
+
+  logger.debug(
+    "relayEVM(" +
+      chainConfigInfo.chainName +
+      "): checking to see if vaa has already been redeemed."
+  );
+  var alreadyRedeemed = await getIsTransferCompletedEth(
+    chainConfigInfo.tokenBridgeAddress,
+    provider,
+    signedVaaArray
+  );
+
+  if (alreadyRedeemed) {
+    logger.info(
+      "relayEVM(" +
+        chainConfigInfo.chainName +
+        "): vaa has already been redeemed!"
+    );
+    return { redeemed: true, result: "already redeemed" };
+  }
+
   const signer = new ethers.Wallet(chainConfigInfo.walletPrivateKey, provider);
+
+  logger.debug("relayEVM(" + chainConfigInfo.chainName + "): redeeming.");
   const receipt = unwrapNative
     ? await redeemOnEthNative(
         chainConfigInfo.tokenBridgeAddress,
@@ -39,7 +63,11 @@ export async function relayEVM(
         signedVaaArray
       );
 
-  logger.debug("redeemed on evm: receipt: %o", receipt);
+  logger.debug(
+    "relayEVM(" +
+      chainConfigInfo.chainName +
+      "): checking to see if the transaction is complete."
+  );
 
   var success = await getIsTransferCompletedEth(
     chainConfigInfo.tokenBridgeAddress,
@@ -50,7 +78,11 @@ export async function relayEVM(
   provider.destroy();
 
   logger.info(
-    "redeemed on evm: success: " + success + ", receipt: %o",
+    "relayEVM(" +
+      chainConfigInfo.chainName +
+      "): success: " +
+      success +
+      ", receipt: %o",
     receipt
   );
   return { redeemed: success, result: receipt };

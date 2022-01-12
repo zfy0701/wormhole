@@ -19,7 +19,7 @@ export async function relaySolana(
   const signedVaaBuffer = Buffer.from(signedVaaArray);
   const connection = new Connection(chainConfigInfo.nodeUrl, "confirmed");
   logger.info(
-    "relaying to solana, private key: [" +
+    "relaySolana: private key: [" +
       chainConfigInfo.walletPrivateKey +
       "], bridgeAddress: [" +
       chainConfigInfo.bridgeAddress +
@@ -30,10 +30,27 @@ export async function relaySolana(
     signedVaaArray + ", signedVaaBuffer: %o",
     signedVaaBuffer
   );
+
+  logger.debug(
+    "relaySolana: checking to see if vaa has already been redeemed."
+  );
+  var alreadyRedeemed = await getIsTransferCompletedSolana(
+    chainConfigInfo.tokenBridgeAddress,
+    signedVaaArray,
+    connection
+  );
+
+  if (alreadyRedeemed) {
+    logger.info("relaySolana: vaa has already been redeemed!");
+    return { redeemed: true, result: "already redeemed" };
+  }
+
   const keypair = Keypair.fromSecretKey(
     Uint8Array.from(JSON.parse(chainConfigInfo.walletPrivateKey))
   );
   const payerAddress = keypair.publicKey.toString();
+
+  logger.debug("relaySolana: posting the vaa.");
   await postVaaSolana(
     connection,
     async (transaction) => {
@@ -44,6 +61,8 @@ export async function relaySolana(
     payerAddress,
     signedVaaBuffer
   );
+
+  logger.debug("relaySolana: redeeming.");
   const unsignedTransaction = await redeemOnSolana(
     connection,
     chainConfigInfo.bridgeAddress,
@@ -51,18 +70,21 @@ export async function relaySolana(
     payerAddress,
     signedVaaArray
   );
+
+  logger.debug("relaySolana: sending.");
   unsignedTransaction.partialSign(keypair);
   const txid = await connection.sendRawTransaction(
     unsignedTransaction.serialize()
   );
   await connection.confirmTransaction(txid);
 
+  logger.debug("relaySolana: checking to see if the transaction is complete.");
   var success = await getIsTransferCompletedSolana(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
     connection
   );
 
-  logger.info("redeemed on solana: success: " + success + ", txid: " + txid);
+  logger.info("relaySolana: success: " + success + ", txid: " + txid);
   return { redeemed: success, result: txid };
 }
