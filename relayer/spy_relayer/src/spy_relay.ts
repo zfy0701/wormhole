@@ -5,6 +5,7 @@ import * as spy_worker from "./spy_worker";
 import * as spy_rest from "./spy_rest";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
+import { PromHelper } from "./promHelpers";
 
 setDefaultWasm("node");
 
@@ -18,6 +19,10 @@ require("dotenv").config({ path: configFile });
 // Set up the logger.
 helpers.initLogger();
 logger.info("spy_relay using config file [" + configFile + "]");
+
+// Set up the Prometheus metrics counter
+logger.info("prometheus client starting...");
+const promClient = new PromHelper("pyth_relay", 8081);
 
 // Load the relay config data.
 var runListen: boolean = true;
@@ -62,8 +67,8 @@ if (
   spy_worker.init(runWorker) &&
   spy_rest.init(runRest)
 ) {
-  if (runListen) spy_listen.run();
-  if (runWorker) spy_worker.run();
+  if (runListen) spy_listen.run(promClient);
+  if (runWorker) spy_worker.run(promClient);
   if (runRest) spy_rest.run();
 
   if (process.env.READINESS_PORT) {

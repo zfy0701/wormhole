@@ -25,9 +25,11 @@ import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { loadChainConfig } from "./configureEnv";
 import { relay } from "./relay/main";
+import { PromHelper } from "./promHelpers";
 
 var redisHost: string;
 var redisPort: number;
+var metrics: PromHelper;
 
 export function init(runWorker: boolean): boolean {
   if (!runWorker) return true;
@@ -50,7 +52,8 @@ export function init(runWorker: boolean): boolean {
   return true;
 }
 
-export async function run() {
+export async function run(ph: PromHelper) {
+  metrics = ph;
   var numWorkers = 1;
   if (process.env.SPY_NUM_WORKERS) {
     numWorkers = parseInt(process.env.SPY_NUM_WORKERS);
@@ -106,6 +109,7 @@ export async function run() {
               // Process the request
               await processRequest(myWorkerIdx, redisClient, si_key);
             } else {
+              metrics.incAlreadyExec();
               logger.debug(
                 "dropping request [" + si_key + "] as already processed"
               );
@@ -156,12 +160,14 @@ async function processRequest(myWorkerIdx: number, rClient, key: string) {
         "]"
     );
     var relayResult = await relay(payload.vaa_bytes);
+    metrics.incSuccesses();
     logger.info(
       "[" + myWorkerIdx + "] processRequest() - relay returned: %o",
       relayResult
     );
     payload.status = relayResult;
   } catch (e) {
+    metrics.incFailures();
     logger.error(
       "[" +
         myWorkerIdx +

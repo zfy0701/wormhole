@@ -22,10 +22,12 @@ import { env } from "./configureEnv";
 import * as helpers from "./helpers";
 import { relay } from "./relay/main";
 import { BigNumber } from "ethers";
+import { PromHelper } from "./promHelpers";
 
 var minimumFee: BigInt = 0n;
 var vaaUriPrelude: string;
 var whMap = new Map<string, string>();
+var metrics: PromHelper;
 
 export function init(runListen: boolean): boolean {
   if (!runListen) return true;
@@ -48,7 +50,8 @@ export function init(runListen: boolean): boolean {
   return true;
 }
 
-export async function run() {
+export async function run(ph: PromHelper) {
+  metrics = ph;
   logger.info(
     "spy_relay starting up, will listen for signed VAAs from [" +
       process.env.SPY_SERVICE_HOST +
@@ -121,6 +124,7 @@ export async function run() {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
+      metrics.incIncoming();
       processVaa(vaaBytes);
     });
 
