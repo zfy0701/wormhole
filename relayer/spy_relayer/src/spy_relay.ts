@@ -21,8 +21,12 @@ helpers.initLogger();
 logger.info("spy_relay using config file [" + configFile + "]");
 
 // Set up the Prometheus metrics counter
-logger.info("prometheus client starting...");
-const promClient = new PromHelper("pyth_relay", 8081);
+var promPort = 8081;
+if (process.env.PROM_PORT) {
+  promPort = parseInt(process.env.PROM_PORT);
+}
+logger.info("prometheus client listening on port " + promPort);
+const promClient = new PromHelper("spy_relay", promPort);
 
 // Load the relay config data.
 var runListen: boolean = true;
