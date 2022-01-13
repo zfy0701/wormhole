@@ -294,6 +294,7 @@ if spy_relayer:
         port_forwards = [
             port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
             port_forward(4201, name = "REST [:4201]", host = webHost),
+            port_forward(8082, name = "Prometheus [:8082]", host = webHost),
         ],
         trigger_mode = trigger_mode,
     )
@@ -305,7 +306,7 @@ if spy_relayer:
         resource_deps = ["proto-gen", "guardian", "redis"],
         port_forwards = [
             port_forward(6063, container_port = 6060, name = "Debug/Status Server [:6063]", host = webHost),
-            port_forward(8081, name = "Prometheus [:8081]", host = webHost),
+            port_forward(8083, name = "Prometheus [:8083]", host = webHost),
         ],
         trigger_mode = trigger_mode,
     )
