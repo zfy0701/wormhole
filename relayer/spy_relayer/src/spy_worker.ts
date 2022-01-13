@@ -26,6 +26,7 @@ import { logger } from "./helpers";
 import { loadChainConfig } from "./configureEnv";
 import { relay } from "./relay/main";
 import { PromHelper } from "./promHelpers";
+import { hexToUint8Array, parseTransferPayload } from "@certusone/wormhole-sdk";
 
 var redisHost: string;
 var redisPort: number;
@@ -54,19 +55,51 @@ export function init(runWorker: boolean): boolean {
 
 export async function run(ph: PromHelper) {
   metrics = ph;
-  var numWorkers = 1;
-  if (process.env.SPY_NUM_WORKERS) {
+  var workerArray = new Array();
+  if (process.env.WORKER_TARGET_CHAINS) {
+    const parsedJsonWorkers = eval(process.env.WORKER_TARGET_CHAINS);
+    logger.info("Attempting to parse worker target chains...");
+
+    for (var i = 0; i < parsedJsonWorkers.length; i++) {
+      var workerInfo: helpers.WorkerInfo = {
+        index: i,
+        targetChainId: parseInt(parsedJsonWorkers[i].chain_id),
+      };
+      workerArray.push(workerInfo);
+    }
+  } else if (process.env.SPY_NUM_WORKERS) {
     numWorkers = parseInt(process.env.SPY_NUM_WORKERS);
-    logger.info("will use " + numWorkers + " workers");
+    for (var i = 0; i < numWorkers; i++) {
+      var workerInfo: helpers.WorkerInfo = {
+        index: 0,
+        targetChainId: 0,
+      };
+      workerArray.push(workerInfo);
+    }
+  } else {
+    var workerInfo: helpers.WorkerInfo = {
+      index: 0,
+      targetChainId: 0,
+    };
+    workerArray.push(workerInfo);
   }
 
   setDefaultWasm("node");
 
+  logger.info("will use " + workerArray.length + " workers");
+  var numWorkers = workerArray.length;
   for (var workerIdx = 0; workerIdx < numWorkers; ++workerIdx) {
     logger.info("starting worker " + workerIdx);
     (async () => {
-      let myWorkerIdx = workerIdx;
+      let myWorkerIdx = workerArray[workerIdx].index;
+      let myTgtChainId = workerArray[workerIdx].targetChainId;
       const redisClient = await helpers.connectToRedis();
+      logger.info(
+        "Spinning up worker[" +
+          myWorkerIdx +
+          "] to handle targetChainId " +
+          myTgtChainId
+      );
       if (!redisClient) {
         logger.error("[" + myWorkerIdx + "] Failed to connect to redis!");
         return;
@@ -78,8 +111,36 @@ export async function run(ph: PromHelper) {
           const si_value = await redisClient.get(si_key);
           if (si_value) {
             logger.debug(
-              "[" + myWorkerIdx + "] SI: " + si_key + " =>" + si_value
+              "[" +
+                myWorkerIdx +
+                ", " +
+                myTgtChainId +
+                "] SI: " +
+                si_key +
+                " =>" +
+                si_value
             );
+
+            // Check to see if this worker should handle this VAA
+            if (myTgtChainId !== 0) {
+              const { parse_vaa } = await importCoreWasm();
+              var storePayload = helpers.storePayloadFromJson(si_value);
+              const parsedVAA = parse_vaa(
+                hexToUint8Array(storePayload.vaa_bytes)
+              );
+              var payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+              var transferPayload = parseTransferPayload(payloadBuffer);
+              const tgtChainId = transferPayload.targetChain;
+              if (tgtChainId !== myTgtChainId) {
+                logger.debug(
+                  "Skipping mismatched chainId.  Received: " +
+                    tgtChainId +
+                    ", want: " +
+                    myTgtChainId
+                );
+                return;
+              }
+            }
 
             // Move this entry to from incoming store to working store
             await redisClient.select(helpers.INCOMING);

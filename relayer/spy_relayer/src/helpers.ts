@@ -157,6 +157,11 @@ import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 export const INCOMING = 0;
 export const WORKING = 1;
 
+export type WorkerInfo = {
+  index: number;
+  targetChainId: number;
+};
+
 export type StoreKey = {
   chain_id: number;
   emitter_address: string;
