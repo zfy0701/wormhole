@@ -170,29 +170,23 @@ export type StoreKey = {
 
 export type StorePayload = {
   vaa_bytes: string;
-};
-
-export type StoreWorkingPayload = {
-  // vaa_bytes is the same as in the StorePayload type.
-  vaa_bytes: string;
   status: string;
   timestamp: string;
+  retries: number;
 };
 
-export function initWorkingPayload(): StoreWorkingPayload {
+export function initPayload(): StorePayload {
   return {
     vaa_bytes: "",
     status: "Pending",
     timestamp: Date().toString(),
+    retries: 0,
   };
 }
-
-export function workingPayloadToJson(payload: StoreWorkingPayload): string {
-  return JSON.stringify(payload);
-}
-
-export function workingPayloadFromJson(json: string): StoreWorkingPayload {
-  return JSON.parse(json);
+export function initPayloadWithVAA(vaa_bytes: any): StorePayload {
+  var sp: StorePayload = initPayload();
+  sp.vaa_bytes = vaa_bytes;
+  return sp;
 }
 
 export function storeKeyFromParsedVAA(parsedVAA: any): StoreKey {
@@ -209,12 +203,6 @@ export function storeKeyToJson(storeKey: StoreKey): string {
 
 export function storeKeyFromJson(json: string): StoreKey {
   return JSON.parse(json);
-}
-
-export function storePayloadFromVaaBytes(vaaBytes: any): StorePayload {
-  return {
-    vaa_bytes: uint8ArrayToHex(vaaBytes),
-  };
 }
 
 export function storePayloadToJson(storePayload: StorePayload): string {

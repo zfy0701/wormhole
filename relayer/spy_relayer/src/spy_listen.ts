@@ -214,7 +214,7 @@ async function processVaa(vaaBytes) {
       );
 
       var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-      var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
+      var storePayload = helpers.initPayloadWithVAA(vaaBytes);
 
       logger.debug(
         "storing: key: [" +

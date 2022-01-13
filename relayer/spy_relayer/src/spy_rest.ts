@@ -66,7 +66,7 @@ export async function run() {
         const parsedVAA = parse_vaa(vaaBuf);
         var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
         var storeKeyStr = helpers.storeKeyToJson(storeKey);
-        var storePayload = helpers.storePayloadFromVaaBytes(vaaBuf);
+        var storePayload = helpers.initPayloadWithVAA(vaaBuf);
 
         logger.info(
           "received a rest request to relay vaa: [" +
@@ -85,8 +85,8 @@ export async function run() {
           await redisClient.select(helpers.WORKING);
           var value: string = await redisClient.get(storeKeyStr);
           if (value) {
-            var payload: helpers.StoreWorkingPayload =
-              helpers.workingPayloadFromJson(value);
+            var payload: helpers.StorePayload =
+              helpers.storePayloadFromJson(value);
             logger.info(
               "rest relay of vaa: count: " + count + ", status: %o",
               payload.status

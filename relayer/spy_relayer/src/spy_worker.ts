@@ -121,10 +121,11 @@ export async function run(ph: PromHelper) {
                 si_value
             );
 
+            var storePayload: helpers.StorePayload =
+              helpers.storePayloadFromJson(si_value);
             // Check to see if this worker should handle this VAA
             if (myTgtChainId !== 0) {
               const { parse_vaa } = await importCoreWasm();
-              var storePayload = helpers.storePayloadFromJson(si_value);
               const parsedVAA = parse_vaa(
                 hexToUint8Array(storePayload.vaa_bytes)
               );
@@ -138,10 +139,30 @@ export async function run(ph: PromHelper) {
                     ", want: " +
                     myTgtChainId
                 );
-                return;
+                continue;
               }
             }
 
+            const BACKOFF_TIME = 30000; // in milliseconds
+            // Check to see if this is a retry and it is time to retry
+            if (storePayload.retries > 0) {
+              // calculate retry time
+              var now: Date = new Date();
+              var old: Date = new Date(storePayload.timestamp);
+              var timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
+              logger.debug(
+                "Checking timestamps:  now: " +
+                  now.toString() +
+                  ", old: " +
+                  old.toString() +
+                  ", delta: " +
+                  timeDelta
+              );
+              if (timeDelta < storePayload.retries * BACKOFF_TIME) {
+                // Not enough time has passed
+                continue;
+              }
+            }
             // Move this entry to from incoming store to working store
             await redisClient.select(helpers.INCOMING);
             if ((await redisClient.del(si_key)) === 0) {
@@ -152,7 +173,7 @@ export async function run(ph: PromHelper) {
                   si_key +
                   "] no longer exists in INCOMING"
               );
-              return;
+              continue;
             }
             await redisClient.select(helpers.WORKING);
             // If this VAA is already in the working store, then no need to add it again.
@@ -160,12 +181,11 @@ export async function run(ph: PromHelper) {
             const checkVal = await redisClient.get(si_key);
             if (!checkVal) {
               var oldPayload = helpers.storePayloadFromJson(si_value);
-              var newPayload: helpers.StoreWorkingPayload;
-              newPayload = helpers.initWorkingPayload();
-              newPayload.vaa_bytes = oldPayload.vaa_bytes;
+              var newPayload: helpers.StorePayload;
+              newPayload = helpers.initPayloadWithVAA(oldPayload.vaa_bytes);
               await redisClient.set(
                 si_key,
-                helpers.workingPayloadToJson(newPayload)
+                helpers.storePayloadToJson(newPayload)
               );
               // Process the request
               await processRequest(myWorkerIdx, redisClient, si_key);
@@ -180,7 +200,7 @@ export async function run(ph: PromHelper) {
           }
         }
         // add sleep
-        await helpers.sleep(3000);
+        await helpers.sleep(1000);
       }
 
       logger.info("[" + myWorkerIdx + "] worker %d exiting");
@@ -203,8 +223,7 @@ async function processRequest(myWorkerIdx: number, rClient, key: string) {
     return;
   }
   var storeKey = helpers.storeKeyFromJson(key);
-  var payload: helpers.StoreWorkingPayload =
-    helpers.workingPayloadFromJson(value);
+  var payload: helpers.StorePayload = helpers.storePayloadFromJson(value);
   if (payload.status !== "Pending") {
     logger.info(
       "[" + myWorkerIdx + "] This key [" + key + "] has already been processed."
@@ -240,20 +259,33 @@ async function processRequest(myWorkerIdx: number, rClient, key: string) {
     };
   }
 
+  const MAX_RETRIES = 10;
+  var retry: boolean = false;
   if (relayResult.redeemed) {
     metrics.incSuccesses();
   } else {
     metrics.incFailures();
     if (relayResult.message && relayResult.message.search("Fatal Error") >= 0) {
       // Invoke fatal error logic here!
+      payload.retries = MAX_RETRIES;
     } else {
       // Invoke retry logic here!
+      retry = true;
     }
   }
 
   // Put result back into store
   payload.status = relayResult;
   payload.timestamp = new Date().toString();
-  value = helpers.workingPayloadToJson(payload);
-  await rClient.set(key, value);
+  payload.retries++;
+  value = helpers.storePayloadToJson(payload);
+  if (!retry || payload.retries > MAX_RETRIES) {
+    await rClient.set(key, value);
+  } else {
+    // Remove from the working table
+    await rClient.del(key);
+    // Put this back into the incoming table
+    await rClient.select(helpers.INCOMING);
+    await rClient.set(key, value);
+  }
 }
