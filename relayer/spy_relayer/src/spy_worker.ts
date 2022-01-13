@@ -212,6 +212,7 @@ async function processRequest(myWorkerIdx: number, rClient, key: string) {
     return;
   }
   // Actually do the processing here and update status and time field
+  var relayResult: any;
   try {
     logger.info(
       "[" +
@@ -220,24 +221,38 @@ async function processRequest(myWorkerIdx: number, rClient, key: string) {
         payload.vaa_bytes +
         "]"
     );
-    var relayResult = await relay(payload.vaa_bytes);
-    metrics.incSuccesses();
+    relayResult = await relay(payload.vaa_bytes);
     logger.info(
       "[" + myWorkerIdx + "] processRequest() - relay returned: %o",
       relayResult
     );
-    payload.status = relayResult;
   } catch (e) {
-    metrics.incFailures();
     logger.error(
       "[" +
         myWorkerIdx +
         "] processRequest() - failed to relay transfer vaa: %o",
       e
     );
-    payload.status = "Failed: " + e;
+
+    relayResult = {
+      redeemed: false,
+      result: e,
+    };
   }
+
+  if (relayResult.redeemed) {
+    metrics.incSuccesses();
+  } else {
+    metrics.incFailures();
+    if (relayResult.message && relayResult.message.search("Fatal Error") >= 0) {
+      // Invoke fatal error logic here!
+    } else {
+      // Invoke retry logic here!
+    }
+  }
+
   // Put result back into store
+  payload.status = relayResult;
   payload.timestamp = new Date().toString();
   value = helpers.workingPayloadToJson(payload);
   await rClient.set(key, value);

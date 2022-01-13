@@ -28,7 +28,15 @@ export async function relay(signedVAA: string): Promise<any> {
     const chainConfigInfo = getChainConfigInfo(transferPayload.targetChain);
     if (!chainConfigInfo) {
       logger.error("relay: improper chain ID: " + transferPayload.targetChain);
-      return "Target chain " + transferPayload.targetChain + " not supported";
+      return {
+        redeemed: false,
+        result: {
+          message:
+            "Fatal Error: target chain " +
+            transferPayload.targetChain +
+            " not supported",
+        },
+      };
     }
 
     if (isEVMChain(transferPayload.targetChain)) {
@@ -50,18 +58,23 @@ export async function relay(signedVAA: string): Promise<any> {
     }
 
     if (transferPayload.targetChain === CHAIN_ID_TERRA) {
-      if (!process.env.TERRA_CHAIN_ID) {
-        return "TERRA_CHAIN_ID env parameter is not set!";
-      }
-
-      if (!process.env.TERRA_GAS_PRICES_URL) {
-        return "TERRA_GAS_PRICES_URL env parameter is not set!";
-      }
-
       return await relayTerra(chainConfigInfo, signedVAA);
     }
 
-    logger.error("relay: unsupported chain ID: " + transferPayload.targetChain);
-    return "invalid chain id";
+    logger.error(
+      "relay: target chain ID: " +
+        transferPayload.targetChain +
+        " is invalid, this is a program bug!"
+    );
+
+    return {
+      redeemed: false,
+      result: {
+        message:
+          "Fatal Error: target chain " +
+          transferPayload.targetChain +
+          " is invalid, this is a program bug!",
+      },
+    };
   }
 }
