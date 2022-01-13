@@ -27,6 +27,7 @@ import { loadChainConfig } from "./configureEnv";
 import { relay } from "./relay/main";
 import { PromHelper } from "./promHelpers";
 import { hexToUint8Array, parseTransferPayload } from "@certusone/wormhole-sdk";
+import { env } from "process";
 
 var redisHost: string;
 var redisPort: number;
@@ -85,6 +86,25 @@ export async function run(ph: PromHelper) {
   }
 
   setDefaultWasm("node");
+
+  var clearRedis: boolean = false;
+  if (process.env.CLEAR_REDIS_ON_INIT) {
+    if (process.env.CLEAR_REDIS_ON_INIT === "true") {
+      clearRedis = true;
+    }
+  }
+  if (clearRedis) {
+    logger.info("Clearing REDIS as per tunable...");
+    const redisClient = await helpers.connectToRedis();
+    if (!redisClient) {
+      logger.error("Failed to connect to redis to clear tables.");
+      return;
+    }
+    await redisClient.FLUSHALL();
+    redisClient.quit();
+  } else {
+    logger.info("NOT clearing REDIS.");
+  }
 
   logger.info("will use " + workerArray.length + " workers");
   var numWorkers = workerArray.length;
@@ -180,12 +200,11 @@ export async function run(ph: PromHelper) {
             // This handles the case of duplicate VAAs from multiple guardians
             const checkVal = await redisClient.get(si_key);
             if (!checkVal) {
-              var oldPayload = helpers.storePayloadFromJson(si_value);
-              var newPayload: helpers.StorePayload;
-              newPayload = helpers.initPayloadWithVAA(oldPayload.vaa_bytes);
+              var payload = helpers.storePayloadFromJson(si_value);
+              payload.status = "Pending";
               await redisClient.set(
                 si_key,
-                helpers.storePayloadToJson(newPayload)
+                helpers.storePayloadToJson(payload)
               );
               // Process the request
               await processRequest(myWorkerIdx, redisClient, si_key);
