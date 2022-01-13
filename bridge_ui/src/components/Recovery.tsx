@@ -204,22 +204,30 @@ function RelayerRecovery({
     }
 
     setIsAttemptingToSchedule(true);
-    axios.get(selectedRelayer.url + RELAY_URL_EXTENSION + signedVaa).then(
-      () => {
-        setIsAttemptingToSchedule(false);
-        onClick();
-      },
-      (error) => {
-        setIsAttemptingToSchedule(false);
-        enqueueSnackbar(null, {
-          content: (
-            <Alert severity="error">
-              {"Relay request rejected. Error: " + error.message}
-            </Alert>
-          ),
-        });
-      }
-    );
+    axios
+      .get(
+        selectedRelayer.url +
+          RELAY_URL_EXTENSION +
+          encodeURIComponent(
+            Buffer.from(hexToUint8Array(signedVaa)).toString("base64")
+          )
+      )
+      .then(
+        () => {
+          setIsAttemptingToSchedule(false);
+          onClick();
+        },
+        (error) => {
+          setIsAttemptingToSchedule(false);
+          enqueueSnackbar(null, {
+            content: (
+              <Alert severity="error">
+                {"Relay request rejected. Error: " + error.message}
+              </Alert>
+            ),
+          });
+        }
+      );
   }, [selectedRelayer, enqueueSnackbar, onClick, signedVaa]);
 
   if (!isEligible) {
