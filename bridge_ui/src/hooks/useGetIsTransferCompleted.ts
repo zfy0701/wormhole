@@ -63,7 +63,7 @@ export default function useGetIsTransferCompleted(
         setPollState((prevState) => (prevState || 0) + 1);
       }, pollFrequency);
     }
-  }, [pollFrequency, pollState]);
+  }, [pollFrequency, pollState, isTransferCompleted]);
 
   useEffect(() => {
     if (!shouldFire) {

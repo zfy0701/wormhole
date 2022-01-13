@@ -1,17 +1,14 @@
 import {
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
   hexToNativeString,
   isEVMChain,
 } from "@certusone/wormhole-sdk";
 import { makeStyles, Typography } from "@material-ui/core";
-import { Alert } from "@material-ui/lab";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useGetTargetParsedTokenAccounts from "../../hooks/useGetTargetParsedTokenAccounts";
 import useIsWalletReady from "../../hooks/useIsWalletReady";
 import useSyncTargetAddress from "../../hooks/useSyncTargetAddress";
-import { GasEstimateSummary } from "../../hooks/useTransactionFees";
 import {
   selectTransferAmount,
   selectTransferIsTargetComplete,
@@ -26,7 +23,7 @@ import {
   selectTransferTargetParsedTokenAccount,
 } from "../../store/selectors";
 import { incrementStep, setTargetChain } from "../../store/transferSlice";
-import { CHAINS, CHAINS_BY_ID } from "../../utils/consts";
+import { CHAINS } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
 import ChainSelect from "../ChainSelect";
 import FeeMethodSelector from "../FeeMethodSelector";

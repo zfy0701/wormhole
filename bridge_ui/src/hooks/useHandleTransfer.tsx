@@ -19,7 +19,6 @@ import {
 } from "@certusone/wormhole-sdk";
 import { Alert } from "@material-ui/lab";
 import { WalletContextState } from "@solana/wallet-adapter-react";
-import { TokenAmount } from "@solana/web3.js";
 import { Connection } from "@solana/web3.js";
 import {
   ConnectedWallet,
@@ -385,6 +384,7 @@ export function useHandleTransfer() {
     enqueueSnackbar,
     sourceChain,
     signer,
+    relayerFee,
     solanaWallet,
     solPK,
     terraWallet,

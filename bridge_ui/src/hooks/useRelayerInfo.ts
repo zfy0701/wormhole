@@ -10,7 +10,6 @@ import {
 } from "@certusone/wormhole-sdk";
 import { hexToNativeString } from "@certusone/wormhole-sdk/lib/esm/utils";
 import axios from "axios";
-import { getAddress } from "ethers/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { DataWrapper } from "../store/helpers";
@@ -18,17 +17,43 @@ import {
   selectTransferGasPrice,
   selectTransferSourceParsedTokenAccount,
 } from "../store/selectors";
-import {
-  getCoinGeckoURL,
-  RELAYER_COMPARE_ASSET,
-  RELAYER_SUPPORTED_ASSETS,
-} from "../utils/consts";
+import { getCoinGeckoURL, RELAYER_COMPARE_ASSET } from "../utils/consts";
+import useRelayersAvailable, { RelayerTokenInfo } from "./useRelayersAvailable";
 
-export function isRelayable(originChain: ChainId, originAsset: string) {
-  return !!RELAYER_SUPPORTED_ASSETS.find(
+export function getRelayAssetInfo(
+  originChain: ChainId,
+  originAsset: string,
+  info: RelayerTokenInfo
+) {
+  if (!originChain || !originAsset || !info) {
+    return null;
+  }
+  return info.supportedTokens?.find(
     (x) =>
-      originAsset.toLowerCase() === x.address.toLowerCase() &&
-      originChain === x.chain
+      originAsset.toLowerCase() === x.address?.toLowerCase() &&
+      originChain === x.chainId
+  );
+}
+
+function isRelayable(
+  originChain: ChainId,
+  originAsset: string,
+  info: RelayerTokenInfo
+) {
+  if (!originChain || !originAsset || !info) {
+    return false;
+  }
+  const tokenRecord = info.supportedTokens?.find(
+    (x) =>
+      originAsset.toLowerCase() === x.address?.toLowerCase() &&
+      originChain === x.chainId
+  );
+
+  return !!(
+    tokenRecord &&
+    tokenRecord.address &&
+    tokenRecord.chainId &&
+    tokenRecord.coingeckoId
   );
 }
 
@@ -37,8 +62,10 @@ const ETH_SAFETY_TOLERANCE = 1.1;
 
 export type RelayerInfo = {
   isRelayable: boolean;
+  isRelayingAvailable: boolean;
   feeUsd?: string;
   feeFormatted?: string;
+  targetNativeAssetPriceQuote?: number;
 };
 
 function calculateFeeUsd(
@@ -74,6 +101,10 @@ function calculateFeeUsd(
   return feeUsd;
 }
 
+function fixedUsd(fee: number) {
+  return fee.toFixed(2);
+}
+
 function requireGasPrice(targetChain: ChainId) {
   return targetChain === CHAIN_ID_ETH;
 }
@@ -103,26 +134,35 @@ function useRelayerInfo(
   );
   const sourceAssetDecimals = sourceParsedTokenAccount?.decimals;
   const gasPrice = useSelector(selectTransferGasPrice);
+  const relayerInfo = useRelayersAvailable(true);
 
-  //TODO actually calc this value
-  const relayersAvailable = true;
   const originAssetNative =
     originAsset && originChain
       ? hexToNativeString(originAsset, originChain)
       : null;
 
   useEffect(() => {
-    if (!(originAssetNative && originChain && targetChain)) {
+    if (
+      !(originAssetNative && originChain && targetChain && relayerInfo.data)
+    ) {
       return;
     }
 
-    const relayerAsset = RELAYER_SUPPORTED_ASSETS.find(
-      (x) =>
-        originAssetNative.toLowerCase() === x.address.toLowerCase() &&
-        originChain === x.chain
+    const relayerAsset = getRelayAssetInfo(
+      originChain,
+      originAssetNative,
+      relayerInfo.data
     );
 
-    if (!relayerAsset) {
+    //same check as relayable, to satiate typescript.
+    if (
+      !(
+        relayerAsset &&
+        relayerAsset.address &&
+        relayerAsset.coingeckoId &&
+        relayerAsset.chainId
+      )
+    ) {
       return;
     }
 
@@ -134,10 +174,10 @@ function useRelayerInfo(
     const comparisonAsset = RELAYER_COMPARE_ASSET[targetChain];
     promises.push(
       axios
-        .get(getCoinGeckoURL(relayerAsset.coinGeckoId))
+        .get(getCoinGeckoURL(relayerAsset.coingeckoId))
         .then((result) => {
           if (!cancelled) {
-            const value = result.data[relayerAsset.coinGeckoId][
+            const value = result.data[relayerAsset.coingeckoId as any][
               "usd"
             ] as number;
             if (!value) {
@@ -181,51 +221,100 @@ function useRelayerInfo(
     return () => {
       cancelled = true;
     };
-  }, [originAssetNative, originChain, targetChain]);
+  }, [originAssetNative, originChain, targetChain, relayerInfo.data]);
 
   const output: DataWrapper<RelayerInfo> = useMemo(() => {
-    const relayable =
-      originChain && originAssetNative
-        ? isRelayable(originChain, originAssetNative)
-        : null;
-    return {
-      error: error,
-      isFetching: isLoading,
-      receivedAt: null,
-      data:
-        error || relayable === false
-          ? { isRelayable: false }
-          : isLoading ||
-            !comparisonAssetPrice ||
-            !originAssetPrice ||
-            !relayersAvailable ||
-            !targetChain ||
-            sourceAssetDecimals === undefined ||
-            (requireGasPrice(targetChain) && !gasPrice)
-          ? null
-          : {
-              isRelayable: !!relayable,
-              feeUsd: calculateFeeUsd(
-                comparisonAssetPrice,
-                targetChain,
-                gasPrice
-              ).toFixed(2),
-              feeFormatted: calculateFeeFormatted(
-                calculateFeeUsd(comparisonAssetPrice, targetChain, gasPrice),
-                originAssetPrice,
-                sourceAssetDecimals
-              ),
-            },
-    };
+    if (error) {
+      return {
+        error: error,
+        isFetching: false,
+        receivedAt: null,
+        data: null,
+      };
+    } else if (isLoading || relayerInfo.isFetching) {
+      return {
+        error: "",
+        isFetching: true,
+        receivedAt: null,
+        data: null,
+      };
+    } else if (relayerInfo.error || !relayerInfo.data) {
+      return {
+        error: "",
+        isFetching: false,
+        receivedAt: null,
+        data: {
+          isRelayable: false,
+          isRelayingAvailable: false,
+          targetNativeAssetPriceQuote: undefined, //TODO can still get this without relayers
+        },
+      };
+    } else if (
+      !originChain ||
+      !originAssetNative ||
+      !targetChain ||
+      !sourceAssetDecimals
+    ) {
+      return {
+        error: "Invalid arguments supplied.",
+        isFetching: false,
+        receivedAt: null,
+        data: null,
+      };
+    } else if (
+      !comparisonAssetPrice ||
+      !originAssetPrice ||
+      (requireGasPrice(targetChain) && !gasPrice)
+    ) {
+      return {
+        error: "Failed to fetch necessary price data.",
+        isFetching: false,
+        receivedAt: null,
+        data: null,
+      };
+    } else {
+      const relayable = isRelayable(
+        originChain,
+        originAssetNative,
+        relayerInfo.data
+      );
+      const feeUsd = calculateFeeUsd(
+        comparisonAssetPrice,
+        targetChain,
+        gasPrice
+      );
+      const feeFormatted = calculateFeeFormatted(
+        feeUsd,
+        originAssetPrice,
+        sourceAssetDecimals
+      );
+      const usdString = fixedUsd(feeUsd);
+      return {
+        error: "",
+        isFetching: false,
+        receivedAt: null,
+        data: {
+          isRelayable: relayable,
+          isRelayingAvailable: true,
+          feeUsd: usdString,
+          feeFormatted: feeFormatted,
+          targetNativeAssetPriceQuote: comparisonAssetPrice,
+        },
+      };
+    }
   }, [
     isLoading,
-    originAsset,
     originChain,
     targetChain,
     error,
     comparisonAssetPrice,
     originAssetPrice,
     gasPrice,
+    originAssetNative,
+    relayerInfo.data,
+    relayerInfo.error,
+    relayerInfo.isFetching,
+    sourceAssetDecimals,
   ]);
 
   return output;

@@ -337,3 +337,7 @@ export const selectTerraTokenMap = (state: RootState) => {
 export const selectMarketsMap = (state: RootState) => {
   return state.tokens.marketsMap;
 };
+
+export const selectRelayerTokenInfo = (state: RootState) => {
+  return state.tokens.relayerTokenInfo
+}

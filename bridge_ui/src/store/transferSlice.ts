@@ -235,6 +235,7 @@ export const transferSlice = createSlice({
       state,
       action: PayloadAction<{
         vaa: any;
+        useRelayer: boolean;
         parsedPayload: {
           targetChain: ChainId;
           targetAddress: string;
@@ -262,6 +263,7 @@ export const transferSlice = createSlice({
       state.amount = action.payload.parsedPayload.amount;
       state.activeStep = 3;
       state.isRecovery = true;
+      state.useRelayer = action.payload.useRelayer;
     },
     setGasPrice: (state, action: PayloadAction<number | undefined>) => {
       state.gasPrice = action.payload;

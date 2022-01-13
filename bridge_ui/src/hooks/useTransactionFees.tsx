@@ -222,14 +222,22 @@ export function useEthereumGasPrice(contract: MethodType, chainId: ChainId) {
 function EthGasEstimateSummary({
   methodType,
   chainId,
+  priceQuote,
 }: {
   methodType: MethodType;
   chainId: ChainId;
+  priceQuote?: number;
 }) {
   const estimate = useEthereumGasPrice(methodType, chainId);
   if (!estimate) {
     return null;
   }
+  const lowUsd = priceQuote
+    ? (priceQuote * parseFloat(estimate.lowEstimate)).toFixed(2)
+    : null;
+  const highUsd = priceQuote
+    ? (priceQuote * parseFloat(estimate.highEstimate)).toFixed(2)
+    : null;
 
   return (
     <Typography
@@ -250,6 +258,7 @@ function EthGasEstimateSummary({
         Est. Fees: {estimate.lowEstimate} - {estimate.highEstimate}{" "}
         {getDefaultNativeCurrencySymbol(chainId)}
       </div>
+      {priceQuote ? <div>{`($${lowUsd} - $${highUsd})`}</div> : null}
     </Typography>
   );
 }
@@ -316,9 +325,11 @@ export async function getGasEstimates(
 function TerraGasEstimateSummary({
   methodType,
   chainId,
+  priceQuote,
 }: {
   methodType: MethodType;
   chainId: ChainId;
+  priceQuote?: number;
 }) {
   if (methodType === "transfer") {
     const lowEstimate = formatUnits(
@@ -329,6 +340,12 @@ function TerraGasEstimateSummary({
       terraEstimatesByContract.transfer.highGasEstimate,
       NATIVE_TERRA_DECIMALS
     );
+    const lowUsd = priceQuote
+      ? (priceQuote * parseFloat(lowEstimate)).toFixed(2)
+      : null;
+    const highUsd = priceQuote
+      ? (priceQuote * parseFloat(highEstimate)).toFixed(2)
+      : null;
     return (
       <Typography
         component="div"
@@ -343,6 +360,7 @@ function TerraGasEstimateSummary({
           Est. Fees: {lowEstimate} - {highEstimate}{" "}
           {getDefaultNativeCurrencySymbol(chainId)}
         </div>
+        {priceQuote ? <div>{`($${lowUsd} - $${highUsd})`}</div> : null}
       </Typography>
     );
   } else {
@@ -353,15 +371,27 @@ function TerraGasEstimateSummary({
 export function GasEstimateSummary({
   methodType,
   chainId,
+  priceQuote, //this is a hack, should refactor to unify the fee selector and this file
 }: {
   methodType: MethodType;
   chainId: ChainId;
+  priceQuote?: number;
 }) {
   if (isEVMChain(chainId)) {
-    return <EthGasEstimateSummary chainId={chainId} methodType={methodType} />;
+    return (
+      <EthGasEstimateSummary
+        chainId={chainId}
+        methodType={methodType}
+        priceQuote={priceQuote}
+      />
+    );
   } else if (chainId === CHAIN_ID_TERRA) {
     return (
-      <TerraGasEstimateSummary chainId={chainId} methodType={methodType} />
+      <TerraGasEstimateSummary
+        chainId={chainId}
+        methodType={methodType}
+        priceQuote={priceQuote}
+      />
     );
   } else {
     return null;

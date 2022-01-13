@@ -4,12 +4,11 @@ import {
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
   CHAIN_ID_ETHEREUM_ROPSTEN,
+  CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
-  CHAIN_ID_OASIS,
   isEVMChain,
-  WSOL_ADDRESS,
 } from "@certusone/wormhole-sdk";
 import { clusterApiUrl } from "@solana/web3.js";
 import { getAddress } from "ethers/lib/utils";
@@ -909,34 +908,34 @@ export type RelayAsset = {
   address: string;
   coinGeckoId: string;
 };
-export const RELAYER_SUPPORTED_ASSETS: RelayAsset[] =
-  CLUSTER === "mainnet"
-    ? [{ chain: CHAIN_ID_SOLANA, address: WSOL_ADDRESS, coinGeckoId: "solana" }]
-    : CLUSTER === "testnet"
-    ? [{ chain: CHAIN_ID_SOLANA, address: WSOL_ADDRESS, coinGeckoId: "solana" }]
-    : [
-        {
-          chain: CHAIN_ID_SOLANA,
-          address: WSOL_ADDRESS,
-          coinGeckoId: "solana",
-        },
-        { chain: CHAIN_ID_ETH, address: WETH_ADDRESS, coinGeckoId: "ethereum" },
-        {
-          chain: CHAIN_ID_TERRA,
-          address: LUNA_ADDRESS,
-          coinGeckoId: "terra-luna",
-        },
-        {
-          chain: CHAIN_ID_TERRA,
-          address: UST_ADDRESS,
-          coinGeckoId: "terrausd",
-        },
-        {
-          chain: CHAIN_ID_BSC,
-          address: WETH_ADDRESS,
-          coinGeckoId: "binancecoin",
-        },
-      ];
+// export const RELAYER_SUPPORTED_ASSETS: RelayAsset[] =
+//   CLUSTER === "mainnet"
+//     ? [{ chain: CHAIN_ID_SOLANA, address: WSOL_ADDRESS, coinGeckoId: "solana" }]
+//     : CLUSTER === "testnet"
+//     ? [{ chain: CHAIN_ID_SOLANA, address: WSOL_ADDRESS, coinGeckoId: "solana" }]
+//     : [
+//         {
+//           chain: CHAIN_ID_SOLANA,
+//           address: WSOL_ADDRESS,
+//           coinGeckoId: "solana",
+//         },
+//         { chain: CHAIN_ID_ETH, address: WETH_ADDRESS, coinGeckoId: "ethereum" },
+//         {
+//           chain: CHAIN_ID_TERRA,
+//           address: LUNA_ADDRESS,
+//           coinGeckoId: "terra-luna",
+//         },
+//         {
+//           chain: CHAIN_ID_TERRA,
+//           address: UST_ADDRESS,
+//           coinGeckoId: "terrausd",
+//         },
+//         {
+//           chain: CHAIN_ID_BSC,
+//           address: WETH_ADDRESS,
+//           coinGeckoId: "binancecoin",
+//         },
+//       ];
 
 export type RelayerCompareAsset = {
   [key in ChainId]: string;
@@ -952,3 +951,8 @@ export const RELAYER_COMPARE_ASSET: RelayerCompareAsset = {
 } as RelayerCompareAsset;
 export const getCoinGeckoURL = (coinGeckoId: string) =>
   `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoId}&vs_currencies=usd`;
+
+export const RELAYER_INFO_URL =
+  CLUSTER === "mainnet" ? "" : "/relayerExample.json";
+
+export const RELAY_URL_EXTENSION = "/relayvaa/";

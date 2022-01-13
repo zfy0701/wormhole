@@ -18,7 +18,7 @@ import {
   Typography,
 } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useGetIsTransferCompleted from "../../hooks/useGetIsTransferCompleted";
 import { useHandleRedeem } from "../../hooks/useHandleRedeem";
@@ -51,6 +51,10 @@ const useStyles = makeStyles((theme) => ({
   alert: {
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(1),
+  },
+  centered: {
+    marginTop: theme.spacing(1),
+    textAlign: "center",
   },
 }));
 
@@ -126,12 +130,12 @@ function Redeem() {
       ) : null}
 
       {(!isEVMChain(targetChain) || isReady) && !isTransferCompleted ? (
-        <>
+        <div className={classes.centered}>
           <CircularProgress />
           <Typography>
             {"Waiting for a relayer to process your transfer."}
           </Typography>
-        </>
+        </div>
       ) : null}
       {isTransferCompleted && isEVMChain(targetChain) ? (
         <AddToMetamask />
