@@ -106,7 +106,7 @@ function configEth(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-    wrappedAsset: process.env.ETH_WRAPPED_ASSET,
+    wrappedAsset: wrappedAsset,
   });
 }
 
@@ -152,7 +152,7 @@ function configBsc(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-    wrappedAsset: process.env.BSC_WRAPPED_ASSET,
+    wrappedAsset: wrappedAsset,
   });
 }
 
@@ -295,7 +295,7 @@ function configPolygon(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-    wrappedAsset: process.env.POLY_WRAPPED_ASSET,
+    wrappedAsset: wrappedAsset,
   });
 }
 
@@ -341,7 +341,7 @@ function configAvax(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-    wrappedAsset: process.env.POLY_WRAPPED_ASSET,
+    wrappedAsset: wrappedAsset,
   });
 }
 
@@ -388,7 +388,7 @@ function configOasis(supportedChains: ChainConfigInfo[]) {
     terraChainId: "",
     terraCoin: "",
     terraGasPriceUrl: "",
-    wrappedAsset: process.env.POLY_WRAPPED_ASSET,
+    wrappedAsset: wrappedAsset,
   });
 }
 */

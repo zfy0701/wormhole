@@ -34,6 +34,14 @@ export async function relay(signedVAA: string): Promise<any> {
     if (isEVMChain(transferPayload.targetChain)) {
       const unwrapNative =
         transferPayload.originAddress == chainConfigInfo.wrappedAsset;
+      logger.debug(
+        "isEVMChain: originAddress: [" +
+          transferPayload.originAddress +
+          "], wrappedAsset: [" +
+          chainConfigInfo.wrappedAsset +
+          "], unwrapNative: " +
+          unwrapNative
+      );
       return await relayEVM(chainConfigInfo, signedVAA, unwrapNative);
     }
 
