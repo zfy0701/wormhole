@@ -1,7 +1,6 @@
 import { createClient } from "redis";
 import axios from "axios";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
-import { hexToUint8Array, uint8ArrayToHex } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 
@@ -70,51 +69,38 @@ export async function run() {
 
         logger.info(
           "received a rest request to relay vaa: [" +
-            storePayload.vaa_bytes +
+            vaaBuf.toString("hex") +
             "]"
         );
-        await helpers.storeInRedis(
-          storeKeyStr,
-          helpers.storePayloadToJson(storePayload)
-        );
 
-        const redisClient = await helpers.connectToRedis();
-        var result: string = "Request timed out";
-        for (let count = 0; count < 30; ++count) {
-          await helpers.sleep(1000);
-          await redisClient.select(helpers.WORKING);
-          var value: string = await redisClient.get(storeKeyStr);
-          if (value) {
-            var payload: helpers.StorePayload =
-              helpers.storePayloadFromJson(value);
-            logger.info(
-              "rest relay of vaa: count: " + count + ", status: %o",
-              payload.status
-            );
-            if (payload.status != "Pending") {
-              result = payload.status;
-              break;
-            } else {
-              result = "Relay timed out";
-            }
-          } else {
-            logger.info(
-              "rest relay of vaa: count: " +
-                count +
-                ", request not in working store"
-            );
-          }
+        var vc;
+        var fee: bigint;
+
+        [vc, fee] = helpers.validateVaa(Buffer.from(parsedVAA.payload));
+        if (vc === "success") {
+          logger.info(
+            "storing rest reuest for key [" + storeKeyStr + "] in redis"
+          );
+          await helpers.storeInRedis(
+            storeKeyStr,
+            helpers.storePayloadToJson(storePayload)
+          );
+
+          res.status(200).json({ message: "Scheduled" });
+        } else {
+          logger.info(
+            "ignoring rest reuest for key [" + storeKeyStr + "]: " + vc
+          );
+
+          res.status(400).json({ message: vc });
         }
-
-        await redisClient.quit();
-        res.json(result);
       } catch (e) {
         logger.error(
           "failed to process rest relay of vaa request, error: %o",
           e
         );
         logger.error("offending request: %o", req);
-        res.json("Request failed");
+        res.status(400).json({ message: "Request failed" });
       }
     });
 

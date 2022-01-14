@@ -21,14 +21,10 @@ import { logger } from "./helpers";
 import { env } from "./configureEnv";
 import * as helpers from "./helpers";
 import { relay } from "./relay/main";
-import { BigNumber } from "ethers";
 import { PromHelper } from "./promHelpers";
 
-var minimumFee: BigInt = 0n;
 var vaaUriPrelude: string;
-var whMap = new Map<string, string>();
 var metrics: PromHelper;
-var usingWhiteList = false;
 
 export function init(runListen: boolean): boolean {
   if (!runListen) return true;
@@ -36,11 +32,6 @@ export function init(runListen: boolean): boolean {
   if (!process.env.SPY_SERVICE_HOST) {
     logger.error("Missing environment variable SPY_SERVICE_HOST");
     return false;
-  }
-
-  if (process.env.SPY_MIN_FEES) {
-    minimumFee = BigInt(process.env.SPY_MIN_FEES);
-    logger.info("will only process vaas where fee is at least " + minimumFee);
   }
 
   vaaUriPrelude =
@@ -101,27 +92,6 @@ export async function run(ph: PromHelper) {
       logger.info("processing all signed VAAs");
     }
 
-    if (process.env.WHITE_LISTED_CONTRACTS) {
-      usingWhiteList = true;
-      const parsedJsonContracts = eval(process.env.WHITE_LISTED_CONTRACTS);
-      logger.info("Attempting to parse white listed contracts...");
-
-      for (var i = 0; i < parsedJsonContracts.length; i++) {
-        var myChainId = parseInt(parsedJsonContracts[i].chain_id) as ChainId;
-        var myContractAddresses = parsedJsonContracts[i].white_list;
-        whMap[myChainId] = myContractAddresses;
-        logger.info(
-          "adding whitelist: chainId: [" +
-            myChainId +
-            "] => whiteList: [" +
-            myContractAddresses +
-            "]"
-        );
-      }
-    } else {
-      logger.info("There are no white listed contracts provisioned.");
-    }
-
     const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
     const stream = await subscribeSignedVAA(client, filter);
 
@@ -161,34 +131,11 @@ async function processVaa(vaaBytes) {
 
     var payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
     var transferPayload = parseTransferPayload(payloadBuffer);
-    var gotFee: boolean;
+    var vc;
     var fee: bigint;
 
-    if (usingWhiteList) {
-      // Check to see if this is a whitelisted contract
-      var listOfAddresses: string;
-      logger.info(
-        "Looking for whitelisted contracts for chainId: " +
-          transferPayload.originChain
-      );
-      listOfAddresses = whMap[transferPayload.originChain];
-      if (!listOfAddresses || listOfAddresses.length === 0) {
-        logger.info(
-          "listOfAddresses is empty for chainId: " + transferPayload.originChain
-        );
-        return;
-      }
-      if (listOfAddresses.includes(transferPayload.originAddress)) {
-        logger.info("Found whitelisted contract");
-      } else {
-        logger.info(
-          "Did not find whitelisted contract: " + transferPayload.originAddress
-        );
-        return;
-      }
-    }
-    [gotFee, fee] = getFee(payloadBuffer);
-    if (gotFee && fee >= minimumFee) {
+    [vc, fee] = helpers.validateVaa(payloadBuffer);
+    if (vc === "success") {
       logger.info(
         "forwarding vaa to relayer: emitter: [" +
           parsedVAA.emitter_chain +
@@ -248,10 +195,8 @@ async function processVaa(vaaBytes) {
       // }
     } else {
       logger.info(
-        "ignoring vaa because fee of " +
-          fee +
-          " is less than the minimum of " +
-          minimumFee +
+        "ignoring vaa because it failed validation with code: " +
+          vc +
           ": emitter: [" +
           parsedVAA.emitter_chain +
           ":" +
@@ -283,27 +228,6 @@ async function processVaa(vaaBytes) {
       parsedVAA
     );
   }
-}
-
-function getFee(arr: Buffer): [boolean, bigint] {
-  // From parseTransferPayload() in sdk/js/src/utils/parseVaa.ts:
-  //     0   u256     amount
-  //     32  [u8; 32] token_address
-  //     64  u16      token_chain
-  //     66  [u8; 32] recipient
-  //     98  u16      recipient_chain
-  //     100 u256     fee`
-
-  var fee: bigint;
-  try {
-    fee = BigNumber.from(arr.slice(101, 101 + 32)).toBigInt();
-  } catch (e) {
-    logger.error("failed to evaluate fees in vaa: %o", e);
-    logger.error("offending payload: %o", arr);
-    return [false, 0n];
-  }
-
-  return [true, fee];
 }
 
 function isPyth(payload): boolean {

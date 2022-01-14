@@ -60,7 +60,7 @@ import { createClient } from "redis";
 var redisHost: string = process.env.REDIS_HOST;
 var redisPort: number = parseInt(process.env.REDIS_PORT);
 
-export function init(): boolean {
+export function init(initValidator: boolean): boolean {
   if (!process.env.REDIS_HOST) {
     logger.error("Missing environment variable REDIS_HOST");
     return false;
@@ -74,6 +74,8 @@ export function init(): boolean {
   redisHost = process.env.REDIS_HOST;
   redisPort = parseInt(process.env.REDIS_PORT);
   logger.info("will connect to redis at [" + redisHost + ":" + redisPort + "]");
+
+  if (initValidator) return validateInit();
   return true;
 }
 
@@ -151,7 +153,8 @@ export async function storeInRedis(name: string, value: string) {
   }
 }
 
-////////////////////////////////// Start of Other Helpful Stuff //////////////////////////////////////
+////////////////////////////////// Start of Other Helpful Stuff ///////////////////////////////
+
 import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 
 export const INCOMING = 0;
@@ -215,4 +218,116 @@ export function storePayloadFromJson(json: string): StorePayload {
 
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+//////////////////////////////////////////////////////// Start of Validation Stuff ////////////
+
+import { BigNumber } from "ethers";
+
+import { ChainId, parseTransferPayload } from "@certusone/wormhole-sdk";
+
+var supportedTargetChains = new Set<ChainId>();
+var originContractWhiteList = new Set<string>();
+var minimumFee: BigInt = 0n;
+
+export function validateInit(): boolean {
+  if (!process.env.WORKER_TARGET_CHAINS) {
+    logger.error("Missing environment variable WORKER_TARGET_CHAINS");
+    return false;
+  }
+
+  const targetChains = eval(process.env.WORKER_TARGET_CHAINS);
+  var str: string;
+  var first: boolean = true;
+  for (var i = 0; i < targetChains.length; i++) {
+    supportedTargetChains.add(targetChains[i].chain_id);
+    logger.info("BOINK: chainId: [" + targetChains[i].chain_id + "]");
+    if (first) {
+      first = false;
+      str = targetChains[i].chain_id;
+    } else {
+      str += ", " + targetChains[i].chain_id;
+    }
+  }
+
+  logger.info("supported target chains: [" + str + "]");
+
+  if (process.env.WHITE_LISTED_CONTRACTS) {
+    const contracts = eval(process.env.WHITE_LISTED_CONTRACTS);
+    for (var i = 0; i < contracts.length; i++) {
+      var key = contracts[i].chain_id + ":" + contracts[i].white_list;
+      originContractWhiteList.add(key);
+      var myChainId = parseInt(contracts[i].chain_id) as ChainId;
+      var myContractAddresses = contracts[i].white_list;
+
+      logger.info(
+        "adding whitelist: chainId: [" +
+          myChainId +
+          "] => whiteList: [" +
+          myContractAddresses +
+          "], key: [" +
+          key +
+          "]"
+      );
+    }
+  } else {
+    logger.info("There are no white listed contracts provisioned.");
+  }
+
+  if (process.env.SPY_MIN_FEES) {
+    minimumFee = BigInt(process.env.SPY_MIN_FEES);
+    logger.info("will only process vaas where fee is at least " + minimumFee);
+  }
+
+  return true;
+}
+
+export const VALIDATE_SUCCESS: string = "success";
+export const VALIDATE_VAA_TYPE_NOT_SUPPORTED: string = "VAA Type Not Supported";
+export const VALIDATE_TARGET_CHAIN_NOT_SUPPORTED: string =
+  "Target Chain Not Supported";
+export const VALIDATE_NOT_WHITE_LISTED: string =
+  "Origin Contract Not In White List";
+export const VALIDATE_FEE_NOT_ENOUGH: string = "Not Enough Fees";
+
+export function validateVaa(payloadBuffer: Buffer): [string, bigint] {
+  if (payloadBuffer[0] !== 1) return [VALIDATE_VAA_TYPE_NOT_SUPPORTED, 0n];
+
+  var transferPayload = parseTransferPayload(payloadBuffer);
+  var fee = getFee(payloadBuffer);
+
+  if (!supportedTargetChains.has(transferPayload.targetChain))
+    return [VALIDATE_TARGET_CHAIN_NOT_SUPPORTED, fee];
+
+  if (originContractWhiteList.size !== 0) {
+    var key: string = transferPayload.originChain.toString();
+    key += ":" + transferPayload.originAddress;
+    if (!originContractWhiteList.has(key))
+      return [VALIDATE_NOT_WHITE_LISTED, fee];
+  }
+
+  if (fee < minimumFee) return [VALIDATE_FEE_NOT_ENOUGH, fee];
+
+  return [VALIDATE_SUCCESS, fee];
+}
+
+function getFee(arr: Buffer): bigint {
+  // From parseTransferPayload() in sdk/js/src/utils/parseVaa.ts:
+  //     0   u256     amount
+  //     32  [u8; 32] token_address
+  //     64  u16      token_chain
+  //     66  [u8; 32] recipient
+  //     98  u16      recipient_chain
+  //     100 u256     fee`
+
+  var fee: bigint;
+  try {
+    fee = BigNumber.from(arr.slice(101, 101 + 32)).toBigInt();
+  } catch (e) {
+    logger.error("failed to extract fees in vaa: %o", e);
+    logger.error("offending payload: %o", arr);
+    return BigInt(Number.MAX_SAFE_INTEGER);
+  }
+
+  return fee;
 }

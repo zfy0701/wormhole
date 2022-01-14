@@ -66,7 +66,7 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
 
 if (
   !error &&
-  helpers.init() &&
+  helpers.init(runListen || runRest) &&
   spy_listen.init(runListen) &&
   spy_worker.init(runWorker) &&
   spy_rest.init(runRest)
