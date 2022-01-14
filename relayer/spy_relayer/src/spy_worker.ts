@@ -163,7 +163,8 @@ export async function run(ph: PromHelper) {
               }
             }
 
-            const BACKOFF_TIME = 30000; // in milliseconds
+            const BACKOFF_TIME = 10000; // in milliseconds
+            const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
             // Check to see if this is a retry and it is time to retry
             if (storePayload.retries > 0) {
               // calculate retry time
@@ -178,7 +179,10 @@ export async function run(ph: PromHelper) {
                   ", delta: " +
                   timeDelta
               );
-              if (timeDelta < storePayload.retries * BACKOFF_TIME) {
+              if (
+                timeDelta <
+                Math.min(BACKOFF_TIME ** storePayload.retries, MAX_BACKOFF_TIME)
+              ) {
                 // Not enough time has passed
                 continue;
               }
