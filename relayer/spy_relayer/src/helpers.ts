@@ -117,6 +117,11 @@ export async function connectToRedis() {
   return rClient;
 }
 
+import { Mutex } from "async-mutex";
+
+const redisMutex = new Mutex();
+let redisQueue = new Array<[string, string]>();
+
 export async function storeInRedis(name: string, value: string) {
   if (!name) {
     logger.error("storeInRedis: invalid name");
@@ -127,13 +132,40 @@ export async function storeInRedis(name: string, value: string) {
     return;
   }
 
-  logger.debug("storeInRedis: connecting to redis.");
-  const redisClient = await connectToRedis();
-  if (!redisClient) {
-    logger.error("Failed to connect to redis!");
-    return;
-  }
+  await redisMutex.runExclusive(async () => {
+    logger.debug("storeInRedis: connecting to redis.");
+    const redisClient = await connectToRedis();
+    if (!redisClient) {
+      redisQueue.push([name, value]);
+      logger.error(
+        "Failed to connect to redis, enqueued vaa, there are now " +
+          redisQueue.length +
+          " enqueued events"
+      );
+      return;
+    }
 
+    if (redisQueue.length !== 0) {
+      logger.info(
+        "now connected to redis, playing out " +
+          redisQueue.length +
+          " enqueued events"
+      );
+      for (let idx = 0; idx < redisQueue.length; ++idx) {
+        addToRedis(redisClient, redisQueue[idx][0], redisQueue[idx][1]);
+      }
+      redisQueue = [];
+    }
+
+    addToRedis(redisClient, name, value);
+  });
+}
+
+export async function addToRedis(
+  redisClient: any,
+  name: string,
+  value: string
+) {
   try {
     logger.debug("storeInRedis: storing in redis.");
     await redisClient.select(INCOMING);
