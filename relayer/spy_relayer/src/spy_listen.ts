@@ -92,15 +92,42 @@ export async function run(ph: PromHelper) {
       logger.info("processing all signed VAAs");
     }
 
-    const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
-    const stream = await subscribeSignedVAA(client, filter);
+    while (true) {
+      let stream: any;
+      try {
+        const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
+        stream = await subscribeSignedVAA(client, filter);
 
-    stream.on("data", ({ vaaBytes }) => {
-      metrics.incIncoming();
-      processVaa(vaaBytes);
-    });
+        stream.on("data", ({ vaaBytes }) => {
+          processVaa(vaaBytes);
+        });
 
-    logger.info("spy_relay waiting for transfer signed VAAs");
+        let connected = true;
+        stream.on("error", (err) => {
+          logger.error("spy service returned an error: %o", err);
+          connected = false;
+        });
+
+        stream.on("close", () => {
+          logger.error("spy service closed the connection!");
+          connected = false;
+        });
+
+        logger.info(
+          "connected to spy service, listening for transfer signed VAAs"
+        );
+
+        while (connected) {
+          await helpers.sleep(1000);
+        }
+      } catch (e) {
+        logger.error("spy service threw an exception: %o", e);
+      }
+
+      stream.end;
+      await helpers.sleep(5 * 1000);
+      logger.info("attempting to reconnect to the spy service");
+    }
   })();
 }
 
