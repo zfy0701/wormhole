@@ -43,3 +43,16 @@ To run spy_relay:
 ```
 npm run spy_relay
 ```
+
+## Spy Listener Environment variables
+
+- SPY_SERVICE_HOST - host & port string to connect to the spy
+- SPY_SERVICE_FILTERS - Addresses to monitor (Bridge contract addresses) array of ["chainId","emitterAddress"]. Emitter addresses are native strings.
+- SPY_NUM_WORKERS - Number for worker threads monitoring the spy
+- REDIS_HOST - ip / host for the REDIS instance.
+- REDIS_PORT - port number for redis.
+- REST_PORT - port that the REST entrypoint will listen on.
+- READINESS_PORT - port for kubernetes readiness probe
+- WORKER_TARGET_CHAINS - chains where relay is supported. Array of numbers
+- LOG_LEVEL - log level, such as debug
+- SUPPORTED_TOKENS - Origin assets that will attempt to be relayed. Array of ["chainId","address"], address should be a native string.

@@ -3,13 +3,12 @@ import {
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
-  // CHAIN_ID_OASIS,
+  CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
 import { ChainID } from "@certusone/wormhole-sdk/lib/cjs/proto/publicrpc/v1/publicrpc";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
-import * as helpers from "./helpers";
 import { logger } from "./helpers";
 
 export type RelayerEnvironment = {
@@ -30,24 +29,166 @@ export type ChainConfigInfo = {
   wrappedAsset: string | null;
 };
 
-// export type ListenerEnvironment = {
-//   spyServiceHost: string;
-//   spyServiceFilters:
-//     {chainId: ChainID;
-//     emitterAddress: string;}[];
+export type ListenerEnvironment = {
+  spyServiceHost: string;
+  spyServiceFilters: { chainId: ChainId; emitterAddress: string }[];
 
-//   redisHost: string;
-//   redisPort: number;
-//   restPort: number;
-//   promPort: number;
-//   readinessPort: number;
-//   supportedChains: ChainId[];
-//   logLevel: string;
-//   supportedTokens: {chainId: ChainId; address: string}[];
-// };
+  redisHost: string;
+  redisPort: number;
+  restPort: number;
+  promPort: number;
+  readinessPort: number;
+  supportedChains: ChainId[];
+  logLevel: string;
+  supportedTokens: { chainId: ChainId; address: string }[];
+};
+let listenerEnv: ListenerEnvironment | undefined = undefined;
+export const getListenerEnvironment: () => ListenerEnvironment = () => {
+  if (listenerEnv) {
+    return listenerEnv;
+  } else {
+    const env = createListenerEnvironment();
+    listenerEnv = env;
+    return listenerEnv;
+  }
+};
+const createListenerEnvironment: () => ListenerEnvironment = () => {
+  let spyServiceHost: string;
+  let spyServiceFilters: { chainId: ChainId; emitterAddress: string }[] = [];
+  let redisHost: string;
+  let redisPort: number;
+  let restPort: number;
+  let promPort: number;
+  let numSpyWorkers: number;
+  let readinessPort: number;
+  let supportedChains: ChainId[] = [];
+  let logLevel: string;
+  let supportedTokens: { chainId: ChainId; address: string }[] = [];
+
+  if (!process.env.SPY_SERVICE_HOST) {
+    throw new Error("Missing required environment variable: SPY_SERVICE_HOST");
+  } else {
+    spyServiceHost = process.env.SPY_SERVICE_HOST;
+  }
+
+  if (!process.env.SPY_SERVICE_FILTERS) {
+    throw new Error("Missing required environment variable: SPY_SERVICE_HOST");
+  } else {
+    const array = JSON.parse(process.env.SPY_SERVICE_FILTERS);
+    if (!array.foreach) {
+      throw new Error("Spy service filters is not an array.");
+    } else {
+      array.forEach((filter: any) => {
+        if (filter.chainId && filter.emitterAddress) {
+          spyServiceFilters.push({
+            chainId: filter.chainId,
+            emitterAddress: filter.emitterAddress,
+          });
+        } else {
+          throw new Error("Invalid filter record. " + filter.toString());
+        }
+      });
+    }
+  }
+
+  if (!process.env.REDIS_HOST) {
+    throw new Error("Missing required environment variable: REDIS_HOST");
+  } else {
+    redisHost = process.env.REDIS_HOST;
+  }
+
+  if (!process.env.REDIS_PORT) {
+    throw new Error("Missing required environment variable: REDIS_PORT");
+  } else {
+    redisPort = parseInt(process.env.REDIS_PORT);
+  }
+
+  if (!process.env.REST_PORT) {
+    throw new Error("Missing required environment variable: REST_PORT");
+  } else {
+    restPort = parseInt(process.env.REST_PORT);
+  }
+
+  if (!process.env.PROM_PORT) {
+    throw new Error("Missing required environment variable: PROM_PORT");
+  } else {
+    promPort = parseInt(process.env.PROM_PORT);
+  }
+
+  if (!process.env.READINESS_PORT) {
+    throw new Error("Missing required environment variable: READINESS_PORT");
+  } else {
+    readinessPort = parseInt(process.env.READINESS_PORT);
+  }
+
+  if (!process.env.SPY_NUM_WORKERS) {
+    throw new Error("Missing required environment variable: SPY_NUM_WORKERS");
+  } else {
+    numSpyWorkers = parseInt(process.env.SPY_NUM_WORKERS);
+  }
+
+  if (!process.env.WORKER_TARGET_CHAINS) {
+    throw new Error(
+      "Missing required environment variable: WORKER_TARGET_CHAINS"
+    );
+  } else {
+    const array = JSON.parse(process.env.WORKER_TARGET_CHAINS);
+    if (!array.foreach) {
+      throw new Error("Spy worker chains is not an array.");
+    } else {
+      array.forEach((chain?: number) => {
+        //TODO check if actually is in range
+        if (chain) {
+          supportedChains.push(chain as ChainId);
+        } else {
+          throw new Error("Invalid chain id record. " + chain);
+        }
+      });
+    }
+  }
+
+  if (!process.env.LOG_LEVEL) {
+    throw new Error("Missing required environment variable: LOG_LEVEL");
+  } else {
+    logLevel = process.env.LOG_LEVEL;
+  }
+
+  if (!process.env.SUPPORTED_TOKENS) {
+    throw new Error("Missing required environment variable: SUPPORTED_TOKENS");
+  } else {
+    const array = JSON.parse(process.env.SUPPORTED_TOKENS);
+    if (!array.foreach) {
+      throw new Error("SUPPORTED_TOKENS is not an array.");
+    } else {
+      array.forEach((token: any) => {
+        if (token.chainId && token.address) {
+          supportedTokens.push({
+            chainId: token.chainId,
+            address: token.address,
+          });
+        } else {
+          throw new Error("Invalid token record. " + token.toString());
+        }
+      });
+    }
+  }
+
+  return {
+    spyServiceHost,
+    spyServiceFilters,
+    redisHost,
+    redisPort,
+    restPort,
+    promPort,
+    numSpyWorkers,
+    readinessPort,
+    supportedChains,
+    logLevel,
+    supportedTokens,
+  };
+};
 
 // let relayerEnv: RelayerEnvironment | undefined = undefined;
-// let listenerEnv: ListenerEnvironment | undefined = undefined;
 
 // export const getRelayerEnvironment: () => RelayerEnvironment = () => {
 //   if (relayerEnv) {
@@ -60,18 +201,6 @@ export type ChainConfigInfo = {
 // };
 
 // const createRelayerEnvironment: () => RelayerEnvironment = () => {};
-
-// export const getListenerEnvironment: () => ListenerEnvironment = () => {
-//   if (listenerEnv) {
-//     return listenerEnv;
-//   } else {
-//     const env = createListenerEnvironment();
-//     listenerEnv = env;
-//     return listenerEnv;
-//   }
-// };
-
-// const createListenerEnvironment: () => ListenerEnvironment = () => {};
 
 //TODO entirely remove this
 let env: RelayerEnvironment = null as any; //TODO not this crime
@@ -393,7 +522,6 @@ function configAvax(supportedChains: ChainConfigInfo[]) {
   });
 }
 
-/*
 function configOasis(supportedChains: ChainConfigInfo[]) {
   if (!process.env.OASIS_NODE_URL) return;
 
@@ -439,4 +567,3 @@ function configOasis(supportedChains: ChainConfigInfo[]) {
     wrappedAsset: wrappedAsset,
   });
 }
-*/

@@ -1,9 +1,7 @@
-import { createClient } from "redis";
-import axios from "axios";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+import { Request, Response } from "express";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
-import { Request, Response } from "express";
 
 export function init(runRest: boolean): boolean {
   if (!runRest) return true;
@@ -27,46 +25,6 @@ export async function run() {
   );
 
   (async () => {
-    const rclient = await helpers.connectToRedis();
-
-    app.get(
-      "/query/:chain_id/:emitter_address/:sequence",
-      async (req: Request, res: Response) => {
-        const key: helpers.StoreKey = {
-          chain_id: parseInt(req.params.chain_id),
-          emitter_address: req.params.emitter_address,
-          sequence: parseInt(req.params.sequence),
-        };
-        //TODO better handle rclient being unavailable & ensure non-null.
-        if (!rclient) {
-          res.status(500);
-          return;
-        }
-
-        await rclient.select(helpers.INCOMING);
-        let result = await rclient.get(helpers.storeKeyToJson(key));
-        if (result) {
-          logger.info(
-            "REST query of [" +
-              helpers.storeKeyToJson(key) +
-              "] found entry in incoming store, returning: %o",
-            result
-          );
-        } else {
-          await rclient.select(helpers.WORKING);
-          result = await rclient.get(helpers.storeKeyToJson(key));
-          logger.info(
-            "REST query of [" +
-              helpers.storeKeyToJson(key) +
-              "] looked for entry in incoming store, returning: %o",
-            result
-          );
-        }
-
-        res.json(result);
-      }
-    );
-
     app.get("/relayvaa/:vaa", async (req: Request, res: Response) => {
       try {
         const vaaBuf = Buffer.from(req.params.vaa, "base64");
@@ -82,10 +40,11 @@ export async function run() {
             "]"
         );
 
-        const [vc, fee] = helpers.validateVaa(Buffer.from(parsedVAA.payload));
+        const [vc] = helpers.validateVaa(Buffer.from(parsedVAA.payload));
         if (vc === "success") {
+          //TODO see if it has already been redeemed
           logger.info(
-            "storing rest reuest for key [" + storeKeyStr + "] in redis"
+            "storing rest request for key [" + storeKeyStr + "] in redis"
           );
           await helpers.storeInRedis(
             storeKeyStr,
@@ -111,12 +70,7 @@ export async function run() {
     });
 
     app.get("/", (req: Request, res: Response) =>
-      res.json([
-        "/query/<chain_id>/<emitter_address>/<sequence>",
-        "/relayvaa/<vaaInBase64>",
-        "/relayseq/<chainId>/<seqNum>",
-        "/relaytid/<chainId>/<transId>",
-      ])
+      res.json(["/relayvaa/<vaaInBase64>"])
     );
   })();
 }
