@@ -275,7 +275,6 @@ export function validateInit(): boolean {
   let str = "";
   for (let i = 0; i < targetChains.length; i++) {
     supportedTargetChains.add(targetChains[i].chain_id);
-    logger.info("BOINK: chainId: [" + targetChains[i].chain_id + "]");
     if (!str) {
       str = targetChains[i].chain_id;
     } else {
