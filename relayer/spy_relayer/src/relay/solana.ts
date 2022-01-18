@@ -18,10 +18,14 @@ export async function relaySolana(
   const signedVaaArray = hexToUint8Array(signedVAAString);
   const signedVaaBuffer = Buffer.from(signedVaaArray);
   const connection = new Connection(chainConfigInfo.nodeUrl, "confirmed");
+
+  if (!chainConfigInfo.bridgeAddress) {
+    return { redeemed: false, result: null };
+  }
+
+  //TODO log public key here
   logger.info(
-    "relaySolana: private key: [" +
-      chainConfigInfo.walletPrivateKey +
-      "], bridgeAddress: [" +
+    "relaySolana bridgeAddress: [" +
       chainConfigInfo.bridgeAddress +
       "], signedVAAString: [" +
       signedVAAString +

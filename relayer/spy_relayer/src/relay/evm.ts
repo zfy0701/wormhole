@@ -4,6 +4,7 @@ import {
   redeemOnEth,
   redeemOnEthNative,
 } from "@certusone/wormhole-sdk";
+import { Signer } from "@ethersproject/abstract-signer";
 import { ethers } from "ethers";
 import { ChainConfigInfo } from "../configureEnv";
 
@@ -15,9 +16,14 @@ export async function relayEVM(
   unwrapNative: boolean
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
-  const provider = new ethers.providers.WebSocketProvider(
+  let provider = new ethers.providers.WebSocketProvider(
     chainConfigInfo.nodeUrl
   );
+  const signer: Signer = new ethers.Wallet(
+    chainConfigInfo.walletPrivateKey,
+    provider
+  );
+
   logger.info(
     "relayEVM(" +
       chainConfigInfo.chainName +
@@ -47,8 +53,6 @@ export async function relayEVM(
     );
     return { redeemed: true, result: "already redeemed" };
   }
-
-  const signer = new ethers.Wallet(chainConfigInfo.walletPrivateKey, provider);
 
   logger.debug("relayEVM(" + chainConfigInfo.chainName + "): redeeming.");
   const receipt = unwrapNative

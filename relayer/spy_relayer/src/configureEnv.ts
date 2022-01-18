@@ -7,6 +7,7 @@ import {
   CHAIN_ID_POLYGON,
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
+import { ChainID } from "@certusone/wormhole-sdk/lib/cjs/proto/publicrpc/v1/publicrpc";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
@@ -26,10 +27,56 @@ export type ChainConfigInfo = {
   terraChainId: string;
   terraCoin: string;
   terraGasPriceUrl: string;
-  wrappedAsset: string;
+  wrappedAsset: string | null;
 };
 
-export var env: RelayerEnvironment;
+// export type ListenerEnvironment = {
+//   spyServiceHost: string;
+//   spyServiceFilters:
+//     {chainId: ChainID;
+//     emitterAddress: string;}[];
+
+//   redisHost: string;
+//   redisPort: number;
+//   restPort: number;
+//   promPort: number;
+//   readinessPort: number;
+//   supportedChains: ChainId[];
+//   logLevel: string;
+//   supportedTokens: {chainId: ChainId; address: string}[];
+// };
+
+// let relayerEnv: RelayerEnvironment | undefined = undefined;
+// let listenerEnv: ListenerEnvironment | undefined = undefined;
+
+// export const getRelayerEnvironment: () => RelayerEnvironment = () => {
+//   if (relayerEnv) {
+//     return relayerEnv;
+//   } else {
+//     const env = createRelayerEnvironment();
+//     relayerEnv = env;
+//     return relayerEnv;
+//   }
+// };
+
+// const createRelayerEnvironment: () => RelayerEnvironment = () => {};
+
+// export const getListenerEnvironment: () => ListenerEnvironment = () => {
+//   if (listenerEnv) {
+//     return listenerEnv;
+//   } else {
+//     const env = createListenerEnvironment();
+//     listenerEnv = env;
+//     return listenerEnv;
+//   }
+// };
+
+// const createListenerEnvironment: () => ListenerEnvironment = () => {};
+
+//TODO entirely remove this
+let env: RelayerEnvironment = null as any; //TODO not this crime
+//TODO not even export this
+export { env };
 
 //Polygon is not supported on local Tilt network atm.
 export function loadChainConfig(): boolean {
@@ -77,11 +124,12 @@ function configEth(supportedChains: ChainConfigInfo[]) {
     throw "Missing environment variable ETH_WRAPPED_ASSET";
   }
 
-  var wrappedAsset = nativeToHexString(
+  let wrappedAsset = nativeToHexString(
     process.env.ETH_WRAPPED_ASSET,
     CHAIN_ID_ETH
   );
 
+  //TODO never log private keys
   logger.info(
     "loaded ETH parameters: chainId: 2, url: [" +
       process.env.ETH_NODE_URL +

@@ -59,7 +59,7 @@ export class PromHelper {
     }
   });
 
-  constructor(name: string, port) {
+  constructor(name: string, port: number) {
     this.register.setDefaultLabels({
       app: name,
     });
@@ -79,7 +79,7 @@ export class PromHelper {
   }
 
   // These are the accessor methods for the metrics
-  setSeqNum(sn) {
+  setSeqNum(sn: number) {
     this.seqNumGauge.set(sn);
   }
   incSuccesses() {
@@ -88,10 +88,10 @@ export class PromHelper {
   incFailures() {
     this.failureCounter.inc();
   }
-  addCompleteTime(val) {
+  addCompleteTime(val: number) {
     this.completeTime.observe(val);
   }
-  setWalletBalance(bal) {
+  setWalletBalance(bal: number) {
     this.walletReg.clear();
     // this.walletReg = new client.Registry();
     this.walletBalance = new client.Gauge({

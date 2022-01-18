@@ -1,22 +1,22 @@
 ////////////////////////////////// Start of Logger Stuff //////////////////////////////////////
-export var logger;
+export let logger: any;
 
 export function initLogger() {
   const winston = require("winston");
-  var useConsole: boolean = true;
-  var logFileName: string;
+  let useConsole = true;
+  let logFileName;
   if (process.env.LOG_DIR) {
     useConsole = false;
     logFileName =
       process.env.LOG_DIR + "/spy_relay." + new Date().toISOString() + ".log";
   }
 
-  var logLevel = "info";
+  let logLevel = "info";
   if (process.env.LOG_LEVEL) {
     logLevel = process.env.LOG_LEVEL;
   }
 
-  var transport: any;
+  let transport: any;
   if (useConsole) {
     console.log("spy_relay is logging to the console at level [%s]", logLevel);
 
@@ -45,7 +45,7 @@ export function initLogger() {
         format: "YYYY-MM-DD HH:mm:ss.SSS",
       }),
       winston.format.printf(
-        (info) => `${[info.timestamp]}|${info.level}|${info.message}`
+        (info: any) => `${[info.timestamp]}|${info.level}|${info.message}`
       )
     ),
   };
@@ -57,8 +57,8 @@ export function initLogger() {
 
 import { createClient } from "redis";
 
-var redisHost: string = process.env.REDIS_HOST;
-var redisPort: number = parseInt(process.env.REDIS_PORT);
+let redisHost: string | undefined;
+let redisPort: number | undefined;
 
 export function init(initValidator: boolean): boolean {
   if (!process.env.REDIS_HOST) {
@@ -80,7 +80,7 @@ export function init(initValidator: boolean): boolean {
 }
 
 export async function connectToRedis() {
-  var rClient;
+  let rClient;
   try {
     rClient = createClient({
       socket: {
@@ -219,7 +219,7 @@ export function initPayload(): StorePayload {
   };
 }
 export function initPayloadWithVAA(vaa_bytes: any): StorePayload {
-  var sp: StorePayload = initPayload();
+  const sp: StorePayload = initPayload();
   sp.vaa_bytes = vaa_bytes;
   return sp;
 }
@@ -248,7 +248,7 @@ export function storePayloadFromJson(json: string): StorePayload {
   return JSON.parse(json);
 }
 
-export function sleep(ms) {
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -256,11 +256,14 @@ export function sleep(ms) {
 
 import { BigNumber } from "ethers";
 
-import { ChainId, parseTransferPayload } from "@certusone/wormhole-sdk";
+import {
+  ChainId,
+  //parseTransferPayload //TODO re-enable after upgrade to 0.1.6
+} from "@certusone/wormhole-sdk";
 
-var supportedTargetChains = new Set<ChainId>();
-var originContractWhiteList = new Set<string>();
-var minimumFee: BigInt = 0n;
+const supportedTargetChains = new Set<ChainId>();
+const originContractWhiteList = new Set<string>();
+let minimumFee: BigInt = 0n;
 
 export function validateInit(): boolean {
   if (!process.env.WORKER_TARGET_CHAINS) {
@@ -269,13 +272,11 @@ export function validateInit(): boolean {
   }
 
   const targetChains = eval(process.env.WORKER_TARGET_CHAINS);
-  var str: string;
-  var first: boolean = true;
-  for (var i = 0; i < targetChains.length; i++) {
+  let str = "";
+  for (let i = 0; i < targetChains.length; i++) {
     supportedTargetChains.add(targetChains[i].chain_id);
     logger.info("BOINK: chainId: [" + targetChains[i].chain_id + "]");
-    if (first) {
-      first = false;
+    if (!str) {
       str = targetChains[i].chain_id;
     } else {
       str += ", " + targetChains[i].chain_id;
@@ -286,11 +287,11 @@ export function validateInit(): boolean {
 
   if (process.env.WHITE_LISTED_CONTRACTS) {
     const contracts = eval(process.env.WHITE_LISTED_CONTRACTS);
-    for (var i = 0; i < contracts.length; i++) {
-      var key = contracts[i].chain_id + ":" + contracts[i].white_list;
+    for (let i = 0; i < contracts.length; i++) {
+      const key = contracts[i].chain_id + ":" + contracts[i].white_list;
       originContractWhiteList.add(key);
-      var myChainId = parseInt(contracts[i].chain_id) as ChainId;
-      var myContractAddresses = contracts[i].white_list;
+      const myChainId = parseInt(contracts[i].chain_id) as ChainId;
+      const myContractAddresses = contracts[i].white_list;
 
       logger.info(
         "adding whitelist: chainId: [" +
@@ -325,41 +326,32 @@ export const VALIDATE_FEE_NOT_ENOUGH: string = "Not Enough Fees";
 export function validateVaa(payloadBuffer: Buffer): [string, bigint] {
   if (payloadBuffer[0] !== 1) return [VALIDATE_VAA_TYPE_NOT_SUPPORTED, 0n];
 
-  var transferPayload = parseTransferPayload(payloadBuffer);
-  var fee = getFee(payloadBuffer);
-
-  if (!supportedTargetChains.has(transferPayload.targetChain))
-    return [VALIDATE_TARGET_CHAIN_NOT_SUPPORTED, fee];
-
-  if (originContractWhiteList.size !== 0) {
-    var key: string = transferPayload.originChain.toString();
-    key += ":" + transferPayload.originAddress;
-    if (!originContractWhiteList.has(key))
-      return [VALIDATE_NOT_WHITE_LISTED, fee];
-  }
-
-  if (fee < minimumFee) return [VALIDATE_FEE_NOT_ENOUGH, fee];
-
-  return [VALIDATE_SUCCESS, fee];
-}
-
-function getFee(arr: Buffer): bigint {
-  // From parseTransferPayload() in sdk/js/src/utils/parseVaa.ts:
-  //     0   u256     amount
-  //     32  [u8; 32] token_address
-  //     64  u16      token_chain
-  //     66  [u8; 32] recipient
-  //     98  u16      recipient_chain
-  //     100 u256     fee`
-
-  var fee: bigint;
   try {
-    fee = BigNumber.from(arr.slice(101, 101 + 32)).toBigInt();
-  } catch (e) {
-    logger.error("failed to extract fees in vaa: %o", e);
-    logger.error("offending payload: %o", arr);
-    return BigInt(Number.MAX_SAFE_INTEGER);
-  }
+    const transferPayload = parseTransferPayload(payloadBuffer);
+    const fee = transferPayload.fee;
 
-  return fee;
+    if (!supportedTargetChains.has(transferPayload.targetChain))
+      return [VALIDATE_TARGET_CHAIN_NOT_SUPPORTED, fee];
+
+    if (originContractWhiteList.size !== 0) {
+      let key: string = transferPayload.originChain.toString();
+      key += ":" + transferPayload.originAddress;
+      if (!originContractWhiteList.has(key))
+        return [VALIDATE_NOT_WHITE_LISTED, fee];
+    }
+
+    if (fee < minimumFee) return [VALIDATE_FEE_NOT_ENOUGH, fee];
+    return [VALIDATE_SUCCESS, fee];
+  } catch (e) {
+    return ["Invalid VAA", BigInt(0)];
+  }
 }
+
+export const parseTransferPayload = (arr: Buffer) => ({
+  amount: BigNumber.from(arr.slice(1, 1 + 32)).toBigInt(),
+  originAddress: arr.slice(33, 33 + 32).toString("hex"),
+  originChain: arr.readUInt16BE(65) as ChainId,
+  targetAddress: arr.slice(67, 67 + 32).toString("hex"),
+  targetChain: arr.readUInt16BE(99) as ChainId,
+  fee: BigNumber.from(arr.slice(101, 101 + 32)).toBigInt(),
+});

@@ -28,6 +28,7 @@ import { relay } from "./relay/main";
 import { PromHelper } from "./promHelpers";
 import { hexToUint8Array, parseTransferPayload } from "@certusone/wormhole-sdk";
 import { env } from "process";
+import { RedisClientType } from "redis";
 
 var redisHost: string;
 var redisPort: number;
@@ -225,20 +226,21 @@ export async function run(ph: PromHelper) {
         // add sleep
         await helpers.sleep(1000);
       }
-
-      logger.info("[" + myWorkerIdx + "] worker %d exiting");
-      await redisClient.quit();
     })();
     // Stagger the threads so they don't all wake up at once
     await helpers.sleep(500);
   }
 }
 
-async function processRequest(myWorkerIdx: number, rClient, key: string) {
+async function processRequest(
+  myWorkerIdx: number,
+  rClient: RedisClientType<any>,
+  key: string
+) {
   logger.debug("[" + myWorkerIdx + "] Processing request [" + key + "]...");
   // Get the entry from the working store
   await rClient.select(helpers.WORKING);
-  var value: string = await rClient.get(key);
+  var value: string | null = await rClient.get(key);
   if (!value) {
     logger.error(
       "[" + myWorkerIdx + "] processRequest could not find key [" + key + "]"

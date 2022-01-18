@@ -83,7 +83,7 @@ if (
       logger.info("listening for readiness requests on port " + readinessPort);
     });
 
-    readinessServer.on("connection", function (socket) {
+    readinessServer.on("connection", function (socket: any) {
       //logger.debug("readiness connection");
     });
   }

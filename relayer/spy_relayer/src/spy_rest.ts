@@ -3,6 +3,7 @@ import axios from "axios";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
+import { Request, Response } from "express";
 
 export function init(runRest: boolean): boolean {
   if (!runRest) return true;
@@ -19,7 +20,7 @@ export async function run() {
   const app = express();
   app.use(cors());
 
-  var restPort: number = parseInt(process.env.REST_PORT);
+  const restPort: number = parseInt(process.env.REST_PORT);
 
   app.listen(restPort, () =>
     logger.info("listening on REST port %d!", restPort)
@@ -28,44 +29,52 @@ export async function run() {
   (async () => {
     const rclient = await helpers.connectToRedis();
 
-    app.get("/query/:chain_id/:emitter_address/:sequence", async (req, res) => {
-      var key: helpers.StoreKey = {
-        chain_id: parseInt(req.params.chain_id),
-        emitter_address: req.params.emitter_address,
-        sequence: parseInt(req.params.sequence),
-      };
+    app.get(
+      "/query/:chain_id/:emitter_address/:sequence",
+      async (req: Request, res: Response) => {
+        const key: helpers.StoreKey = {
+          chain_id: parseInt(req.params.chain_id),
+          emitter_address: req.params.emitter_address,
+          sequence: parseInt(req.params.sequence),
+        };
+        //TODO better handle rclient being unavailable & ensure non-null.
+        if (!rclient) {
+          res.status(500);
+          return;
+        }
 
-      await rclient.select(helpers.INCOMING);
-      var result = await rclient.get(helpers.storeKeyToJson(key));
-      if (result) {
-        logger.info(
-          "REST query of [" +
-            helpers.storeKeyToJson(key) +
-            "] found entry in incoming store, returning: %o",
-          result
-        );
-      } else {
-        await rclient.select(helpers.WORKING);
-        var result = await rclient.get(helpers.storeKeyToJson(key));
-        logger.info(
-          "REST query of [" +
-            helpers.storeKeyToJson(key) +
-            "] looked for entry in incoming store, returning: %o",
-          result
-        );
+        await rclient.select(helpers.INCOMING);
+        let result = await rclient.get(helpers.storeKeyToJson(key));
+        if (result) {
+          logger.info(
+            "REST query of [" +
+              helpers.storeKeyToJson(key) +
+              "] found entry in incoming store, returning: %o",
+            result
+          );
+        } else {
+          await rclient.select(helpers.WORKING);
+          result = await rclient.get(helpers.storeKeyToJson(key));
+          logger.info(
+            "REST query of [" +
+              helpers.storeKeyToJson(key) +
+              "] looked for entry in incoming store, returning: %o",
+            result
+          );
+        }
+
+        res.json(result);
       }
+    );
 
-      res.json(result);
-    });
-
-    app.get("/relayvaa/:vaa", async (req, res) => {
+    app.get("/relayvaa/:vaa", async (req: Request, res: Response) => {
       try {
-        var vaaBuf = Buffer.from(req.params.vaa, "base64");
+        const vaaBuf = Buffer.from(req.params.vaa, "base64");
         const { parse_vaa } = await importCoreWasm();
         const parsedVAA = parse_vaa(vaaBuf);
-        var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-        var storeKeyStr = helpers.storeKeyToJson(storeKey);
-        var storePayload = helpers.initPayloadWithVAA(vaaBuf);
+        const storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+        const storeKeyStr = helpers.storeKeyToJson(storeKey);
+        const storePayload = helpers.initPayloadWithVAA(vaaBuf);
 
         logger.info(
           "received a rest request to relay vaa: [" +
@@ -73,10 +82,7 @@ export async function run() {
             "]"
         );
 
-        var vc;
-        var fee: bigint;
-
-        [vc, fee] = helpers.validateVaa(Buffer.from(parsedVAA.payload));
+        const [vc, fee] = helpers.validateVaa(Buffer.from(parsedVAA.payload));
         if (vc === "success") {
           logger.info(
             "storing rest reuest for key [" + storeKeyStr + "] in redis"
@@ -104,7 +110,7 @@ export async function run() {
       }
     });
 
-    app.get("/", (req, res) =>
+    app.get("/", (req: Request, res: Response) =>
       res.json([
         "/query/<chain_id>/<emitter_address>/<sequence>",
         "/relayvaa/<vaaInBase64>",

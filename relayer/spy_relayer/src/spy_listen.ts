@@ -95,15 +95,19 @@ export async function run(ph: PromHelper) {
     while (true) {
       let stream: any;
       try {
-        const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
+        //TODO use ENV object
+        const client = createSpyRPCServiceClient(
+          process.env.SPY_SERVICE_HOST || ""
+        );
         stream = await subscribeSignedVAA(client, filter);
 
-        stream.on("data", ({ vaaBytes }) => {
+        //TODO validate that this is the correct type of the vaaBytes
+        stream.on("data", ({ vaaBytes }: { vaaBytes: string }) => {
           processVaa(vaaBytes);
         });
 
         let connected = true;
-        stream.on("error", (err) => {
+        stream.on("error", (err: any) => {
           logger.error("spy service returned an error: %o", err);
           connected = false;
         });
@@ -132,8 +136,8 @@ export async function run(ph: PromHelper) {
 }
 
 async function encodeEmitterAddress(
-  myChainId,
-  emitterAddressStr
+  myChainId: ChainId,
+  emitterAddressStr: string
 ): Promise<string> {
   if (myChainId === CHAIN_ID_SOLANA) {
     return await getEmitterAddressSolana(emitterAddressStr);
@@ -146,15 +150,18 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes) {
-  logger.debug("processVaa: vaaBytes: %o", vaaBytes);
+async function processVaa(hexVaa: string) {
+  logger.debug("processVaa: vaaBytes: %o", hexVaa);
   const { parse_vaa } = await importCoreWasm();
-  const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
+  const parsedVAA = parse_vaa(hexToUint8Array(hexVaa));
   logger.debug("processVaa: parsedVAA: %o", parsedVAA);
 
   if (parsedVAA.payload[0] === 1) {
     const vaaUri =
-      vaaUriPrelude + encodeURIComponent(vaaBytes.toString("base64"));
+      vaaUriPrelude +
+      encodeURIComponent(
+        Buffer.from(hexToUint8Array(hexVaa)).toString("base64")
+      );
 
     var payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
     var transferPayload = parseTransferPayload(payloadBuffer);
@@ -188,7 +195,7 @@ async function processVaa(vaaBytes) {
       );
 
       var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-      var storePayload = helpers.initPayloadWithVAA(vaaBytes);
+      var storePayload = helpers.initPayloadWithVAA(hexVaa);
 
       logger.debug(
         "storing: key: [" +
@@ -257,7 +264,7 @@ async function processVaa(vaaBytes) {
   }
 }
 
-function isPyth(payload): boolean {
+function isPyth(payload: Buffer): boolean {
   if (payload.length < 4) return false;
   if (
     payload[0] === 80 &&
