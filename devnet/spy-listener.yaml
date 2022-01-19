@@ -46,3 +46,6 @@ spec:
             - containerPort: 4201
               name: rest
               protocol: TCP
+            - containerPort: 8082
+              name: prometheus
+              protocol: TCP

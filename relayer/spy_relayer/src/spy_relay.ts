@@ -5,7 +5,7 @@ import * as spy_worker from "./spy_worker";
 import * as spy_rest from "./spy_rest";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
-import { PromHelper } from "./promHelpers";
+import { PromHelper, PromMode } from "./promHelpers";
 
 setDefaultWasm("node");
 
@@ -19,14 +19,6 @@ require("dotenv").config({ path: configFile });
 // Set up the logger.
 helpers.initLogger();
 logger.info("spy_relay using config file [" + configFile + "]");
-
-// Set up the Prometheus metrics counter
-var promPort = 8081;
-if (process.env.PROM_PORT) {
-  promPort = parseInt(process.env.PROM_PORT);
-}
-logger.info("prometheus client listening on port " + promPort);
-const promClient = new PromHelper("spy_relay", promPort);
 
 // Load the relay config data.
 var runListen: boolean = true;
@@ -71,6 +63,25 @@ if (
   spy_worker.init(runWorker) &&
   spy_rest.init(runRest)
 ) {
+  // Set up the Prometheus metrics counter
+  var promPort = 8081;
+  if (process.env.PROM_PORT) {
+    promPort = parseInt(process.env.PROM_PORT);
+  }
+  logger.info("prometheus client listening on port " + promPort);
+  let promClient: PromHelper;
+  const runBoth: boolean = runListen && runWorker;
+  if (runBoth) {
+    promClient = new PromHelper("spy_relay", promPort, PromMode.Both);
+  } else if (runListen) {
+    promClient = new PromHelper("spy_relay", promPort, PromMode.Listen);
+  } else if (runWorker) {
+    promClient = new PromHelper("spy_relay", promPort, PromMode.Relay);
+  } else {
+    logger.error("Invalid run mode for Prometheus");
+    promClient = new PromHelper("spy_relay", promPort, PromMode.Both);
+  }
+
   if (runListen) spy_listen.run(promClient);
   if (runWorker) spy_worker.run(promClient);
   if (runRest) spy_rest.run();

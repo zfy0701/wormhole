@@ -23,8 +23,8 @@ import * as helpers from "./helpers";
 import { relay } from "./relay/main";
 import { PromHelper } from "./promHelpers";
 
-var vaaUriPrelude: string;
-var metrics: PromHelper;
+let vaaUriPrelude: string;
+let metrics: PromHelper;
 
 export function init(runListen: boolean): boolean {
   if (!runListen) return true;
@@ -50,25 +50,19 @@ export async function run(ph: PromHelper) {
       "]"
   );
 
-  // Connect to redis globally
-  // var myRedisClient;
-  // async () => {
-  //   myRedisClient = await connectToRedis();
-  // };
-
   (async () => {
-    var filter = {};
+    let filter = {};
     if (process.env.SPY_SERVICE_FILTERS) {
       const parsedJsonFilters = eval(process.env.SPY_SERVICE_FILTERS);
 
-      var myFilters = [];
-      for (var i = 0; i < parsedJsonFilters.length; i++) {
-        var myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
-        var myEmitterAddress = await encodeEmitterAddress(
+      let myFilters = [];
+      for (let i = 0; i < parsedJsonFilters.length; i++) {
+        const myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
+        const myEmitterAddress = await encodeEmitterAddress(
           myChainId,
           parsedJsonFilters[i].emitter_address
         );
-        var myEmitterFilter = {
+        const myEmitterFilter = {
           emitterFilter: {
             chainId: myChainId,
             emitterAddress: myEmitterAddress,
@@ -155,6 +149,7 @@ async function processVaa(hexVaa: string) {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(hexVaa));
   logger.debug("processVaa: parsedVAA: %o", parsedVAA);
+  metrics.incIncoming();
 
   if (parsedVAA.payload[0] === 1) {
     const vaaUri =
@@ -163,10 +158,10 @@ async function processVaa(hexVaa: string) {
         Buffer.from(hexToUint8Array(hexVaa)).toString("base64")
       );
 
-    var payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
-    var transferPayload = parseTransferPayload(payloadBuffer);
-    var vc;
-    var fee: bigint;
+    const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+    const transferPayload = parseTransferPayload(payloadBuffer);
+    let vc;
+    let fee: bigint;
 
     [vc, fee] = helpers.validateVaa(payloadBuffer);
     if (vc === "success") {
@@ -194,8 +189,8 @@ async function processVaa(hexVaa: string) {
           "]"
       );
 
-      var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-      var storePayload = helpers.initPayloadWithVAA(hexVaa);
+      const storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+      const storePayload = helpers.initPayloadWithVAA(hexVaa);
 
       logger.debug(
         "storing: key: [" +

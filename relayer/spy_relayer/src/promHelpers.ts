@@ -6,10 +6,16 @@ import client = require("prom-client");
 // 2) Create a method to set the metric to a value
 // 3) Register the metric
 
+export enum PromMode {
+  Listen,
+  Relay,
+  Both,
+}
+
 export class PromHelper {
   private register = new client.Registry();
   private walletReg = new client.Registry();
-  private collectDefaultMetrics = client.collectDefaultMetrics;
+  // private collectDefaultMetrics = client.collectDefaultMetrics;
 
   // Actual metrics
   private successCounter = new client.Counter({
@@ -36,6 +42,7 @@ export class PromHelper {
   // End metrics
 
   private server = http.createServer(async (req, res) => {
+    // console.log("promHelpers received a request: ", req);
     if (req.url === "/metrics") {
       // Return all metrics in the Prometheus exposition format
       res.setHeader("Content-Type", this.register.contentType);
@@ -45,17 +52,21 @@ export class PromHelper {
     }
   });
 
-  constructor(name: string, port: number) {
+  constructor(name: string, port: number, mode: PromMode) {
     this.register.setDefaultLabels({
       app: name,
     });
-    this.collectDefaultMetrics({ register: this.register });
+    // this.collectDefaultMetrics({ register: this.register });
 
     // Register each metric
-    this.register.registerMetric(this.successCounter);
-    this.register.registerMetric(this.failureCounter);
-    this.register.registerMetric(this.listenCounter);
-    this.register.registerMetric(this.alreadyExecutedCounter);
+    if (mode === PromMode.Listen || mode == PromMode.Both) {
+      this.register.registerMetric(this.listenCounter);
+    }
+    if (mode === PromMode.Relay || mode == PromMode.Both) {
+      this.register.registerMetric(this.successCounter);
+      this.register.registerMetric(this.failureCounter);
+      this.register.registerMetric(this.alreadyExecutedCounter);
+    }
     // End registering metric
 
     this.server.listen(port);
