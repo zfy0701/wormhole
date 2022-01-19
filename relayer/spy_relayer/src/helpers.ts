@@ -192,6 +192,18 @@ import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 export const INCOMING = 0;
 export const WORKING = 1;
 
+export enum Status {
+  Pending,
+  Completed,
+  Error,
+  FatalError,
+}
+
+export type RelayResult = {
+  status: Status;
+  result: string | null;
+};
+
 export type WorkerInfo = {
   index: number;
   targetChainId: number;
@@ -205,7 +217,7 @@ export type StoreKey = {
 
 export type StorePayload = {
   vaa_bytes: string;
-  status: string;
+  status: Status;
   timestamp: string;
   retries: number;
 };
@@ -213,7 +225,7 @@ export type StorePayload = {
 export function initPayload(): StorePayload {
   return {
     vaa_bytes: "",
-    status: "Pending",
+    status: Status.Pending,
     timestamp: Date().toString(),
     retries: 0,
   };

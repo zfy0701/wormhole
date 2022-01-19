@@ -11,7 +11,8 @@ import { ChainConfigInfo } from "../configureEnv";
 
 export async function relaySolana(
   chainConfigInfo: ChainConfigInfo,
-  signedVAAString: string
+  signedVAAString: string,
+  checkOnly: boolean
 ) {
   //TODO native transfer & create associated token account
   //TODO close connection
@@ -38,7 +39,7 @@ export async function relaySolana(
   logger.debug(
     "relaySolana: checking to see if vaa has already been redeemed."
   );
-  var alreadyRedeemed = await getIsTransferCompletedSolana(
+  const alreadyRedeemed = await getIsTransferCompletedSolana(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
     connection
@@ -47,6 +48,9 @@ export async function relaySolana(
   if (alreadyRedeemed) {
     logger.info("relaySolana: vaa has already been redeemed!");
     return { redeemed: true, result: "already redeemed" };
+  }
+  if (checkOnly) {
+    return { redeemed: false, result: "not redeemed" };
   }
 
   const keypair = Keypair.fromSecretKey(
@@ -83,7 +87,7 @@ export async function relaySolana(
   await connection.confirmTransaction(txid);
 
   logger.debug("relaySolana: checking to see if the transaction is complete.");
-  var success = await getIsTransferCompletedSolana(
+  const success = await getIsTransferCompletedSolana(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
     connection

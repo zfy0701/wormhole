@@ -9,7 +9,8 @@ import { ChainConfigInfo } from "../configureEnv";
 
 export async function relayTerra(
   chainConfigInfo: ChainConfigInfo,
-  signedVAA: string
+  signedVAA: string,
+  checkOnly: boolean
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
   const lcdConfig = {
@@ -38,7 +39,7 @@ export async function relayTerra(
   );
 
   logger.debug("relayTerra: checking to see if vaa has already been redeemed.");
-  var alreadyRedeemed = await getIsTransferCompletedTerra(
+  const alreadyRedeemed = await getIsTransferCompletedTerra(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
     wallet.key.accAddress,
@@ -49,6 +50,9 @@ export async function relayTerra(
   if (alreadyRedeemed) {
     logger.info("relayTerra: vaa has already been redeemed!");
     return { redeemed: true, result: "already redeemed" };
+  }
+  if (checkOnly) {
+    return { redeemed: false, result: "not redeemed" };
   }
 
   const msg = await redeemOnTerra(
@@ -83,7 +87,7 @@ export async function relayTerra(
   const receipt = await lcd.tx.broadcast(tx);
 
   logger.debug("relayTerra: checking to see if the transaction is complete.");
-  var success = await getIsTransferCompletedTerra(
+  const success = await getIsTransferCompletedTerra(
     chainConfigInfo.tokenBridgeAddress,
     signedVaaArray,
     wallet.key.accAddress,
@@ -92,5 +96,5 @@ export async function relayTerra(
   );
 
   logger.info("relayTerra: success: " + success + ", receipt: %o", receipt);
-  return { redeemed: success, result: receipt };
+  return { redeemed: success, result: receipt.txhash };
 }

@@ -13,7 +13,8 @@ import { logger } from "../helpers";
 export async function relayEVM(
   chainConfigInfo: ChainConfigInfo,
   signedVAA: string,
-  unwrapNative: boolean
+  unwrapNative: boolean,
+  checkOnly: boolean
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
   let provider = new ethers.providers.WebSocketProvider(
@@ -39,7 +40,7 @@ export async function relayEVM(
       chainConfigInfo.chainName +
       "): checking to see if vaa has already been redeemed."
   );
-  var alreadyRedeemed = await getIsTransferCompletedEth(
+  const alreadyRedeemed = await getIsTransferCompletedEth(
     chainConfigInfo.tokenBridgeAddress,
     provider,
     signedVaaArray
@@ -52,6 +53,9 @@ export async function relayEVM(
         "): vaa has already been redeemed!"
     );
     return { redeemed: true, result: "already redeemed" };
+  }
+  if (checkOnly) {
+    return { redeemed: false, result: "not redeemed" };
   }
 
   logger.debug("relayEVM(" + chainConfigInfo.chainName + "): redeeming.");
@@ -73,7 +77,7 @@ export async function relayEVM(
       "): checking to see if the transaction is complete."
   );
 
-  var success = await getIsTransferCompletedEth(
+  const success = await getIsTransferCompletedEth(
     chainConfigInfo.tokenBridgeAddress,
     provider,
     signedVaaArray
