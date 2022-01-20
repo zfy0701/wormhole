@@ -4,6 +4,7 @@ import {
   CHAIN_ID_TERRA,
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
+import { getLogger } from "./helpers/logHelper";
 
 export type CommonEnvironment = {
   logLevel: string;
@@ -121,6 +122,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   let restPort: number;
   let numSpyWorkers: number;
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
+  const logger = getLogger();
 
   if (!process.env.SPY_SERVICE_HOST) {
     throw new Error("Missing required environment variable: SPY_SERVICE_HOST");
@@ -128,20 +130,30 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
     spyServiceHost = process.env.SPY_SERVICE_HOST;
   }
 
+  logger.info("Getting SPY_SERVICE_FILTERS...");
   if (!process.env.SPY_SERVICE_FILTERS) {
-    throw new Error("Missing required environment variable: SPY_SERVICE_HOST");
+    throw new Error(
+      "Missing required environment variable: SPY_SERVICE_FILTERS"
+    );
   } else {
-    const array = JSON.parse(process.env.SPY_SERVICE_FILTERS);
-    if (!array.foreach) {
+    // const array = JSON.parse(process.env.SPY_SERVICE_FILTERS);
+    const array = eval(process.env.SPY_SERVICE_FILTERS);
+    console.log("Spy service filters: ", array);
+    // if (!array.foreach) {
+    if (!array || !Array.isArray(array)) {
       throw new Error("Spy service filters is not an array.");
     } else {
       array.forEach((filter: any) => {
         if (filter.chainId && filter.emitterAddress) {
+          logger.info(
+            "nativeToHexString: " +
+              nativeToHexString(filter.emitterAddress, filter.chainId)
+          );
           spyServiceFilters.push({
             chainId: filter.chainId as ChainId,
             emitterAddress: nativeToHexString(
-              filter.chainId,
-              filter.emitterAddress
+              filter.emitterAddress,
+              filter.chainId
             ) as string,
           });
         } else {
@@ -151,23 +163,27 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
     }
   }
 
+  logger.info("Getting REST_PORT...");
   if (!process.env.REST_PORT) {
     throw new Error("Missing required environment variable: REST_PORT");
   } else {
     restPort = parseInt(process.env.REST_PORT);
   }
 
+  logger.info("Getting SPY_NUM_WORKERS...");
   if (!process.env.SPY_NUM_WORKERS) {
     throw new Error("Missing required environment variable: SPY_NUM_WORKERS");
   } else {
     numSpyWorkers = parseInt(process.env.SPY_NUM_WORKERS);
   }
 
+  logger.info("Getting SUPPORTED_TOKENS...");
   if (!process.env.SUPPORTED_TOKENS) {
     throw new Error("Missing required environment variable: SUPPORTED_TOKENS");
   } else {
-    const array = JSON.parse(process.env.SUPPORTED_TOKENS);
-    if (!array.foreach) {
+    // const array = JSON.parse(process.env.SUPPORTED_TOKENS);
+    const array = eval(process.env.SUPPORTED_TOKENS);
+    if (!array || !Array.isArray(array)) {
       throw new Error("SUPPORTED_TOKENS is not an array.");
     } else {
       array.forEach((token: any) => {

@@ -53,12 +53,23 @@ export function init(runListen: boolean): boolean {
 export async function run(ph: PromHelper) {
   const logger = getLogger();
   metrics = ph;
+  logger.info("Attempting to run Listener...");
 
   let typedFilters: {
     emitterFilter: { chainId: ChainId; emitterAddress: string };
   }[] = [];
   for (let i = 0; i < env.spyServiceFilters.length; i++) {
+    logger.info("Getting spyServiceFiltera " + i);
     const filter = env.spyServiceFilters[i];
+    logger.info(
+      "Getting spyServiceFilter[" +
+        i +
+        "]: chainId = " +
+        filter.chainId +
+        ", emmitterAddress = [" +
+        filter.emitterAddress +
+        "]"
+    );
     const typedFilter = {
       emitterFilter: {
         chainId: filter.chainId as ChainId,
@@ -68,6 +79,7 @@ export async function run(ph: PromHelper) {
         ),
       },
     };
+    logger.info("Getting spyServiceFilterc " + i);
     logger.info(
       "adding filter: chainId: [" +
         typedFilter.emitterFilter.chainId +
@@ -75,7 +87,9 @@ export async function run(ph: PromHelper) {
         typedFilter.emitterFilter.emitterAddress +
         "]"
     );
+    logger.info("Getting spyServiceFilterd " + i);
     typedFilters.push(typedFilter);
+    logger.info("Getting spyServiceFiltere " + i);
   }
 
   logger.info(
@@ -197,13 +211,23 @@ async function encodeEmitterAddress(
   myChainId: ChainId,
   emitterAddressStr: string
 ): Promise<string> {
+  logger.info(
+    "encodeEmitterAddress myChainId: " +
+      myChainId +
+      ", emitterAddressStr: [" +
+      emitterAddressStr +
+      "]"
+  );
   if (myChainId === CHAIN_ID_SOLANA) {
+    logger.info("encodeEmitterAddress b");
     return await getEmitterAddressSolana(emitterAddressStr);
   }
 
   if (myChainId === CHAIN_ID_TERRA) {
+    logger.info("encodeEmitterAddress c");
     return await getEmitterAddressTerra(emitterAddressStr);
   }
 
+  logger.info("encodeEmitterAddress d");
   return getEmitterAddressEth(emitterAddressStr);
 }
