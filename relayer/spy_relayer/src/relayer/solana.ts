@@ -33,8 +33,8 @@ export async function relaySolana(
       "]"
   );
   logger.info("bridgeAddress: [" + chainConfigInfo.bridgeAddress + "]");
-  logger.info("signedVAAString: [" + signedVAAString + "]");
-  logger.info(" signedVaaArray: %o", signedVaaArray);
+  // logger.info("signedVAAString: [" + signedVAAString + "]");
+  // logger.info(" signedVaaArray: %o", signedVaaArray);
   // logger.info(", signedVaaBuffer: %o", signedVaaBuffer);
   // logger.info(", connection: %o", connection);
 
