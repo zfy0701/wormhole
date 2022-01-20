@@ -28,15 +28,15 @@ export async function relaySolana(
 
   //TODO log public key here
   logger.info(
-    "relaySolana bridgeAddress: [" +
-      chainConfigInfo.bridgeAddress +
-      "], signedVAAString: [" +
-      signedVAAString +
-      "]" +
-      " signedVaaArray: %o",
-    signedVaaArray + ", signedVaaBuffer: %o",
-    signedVaaBuffer
+    "relaySolana tokenBridgeAddress: [" +
+      chainConfigInfo.tokenBridgeAddress +
+      "]"
   );
+  logger.info("bridgeAddress: [" + chainConfigInfo.bridgeAddress + "]");
+  logger.info("signedVAAString: [" + signedVAAString + "]");
+  logger.info(" signedVaaArray: %o", signedVaaArray);
+  // logger.info(", signedVaaBuffer: %o", signedVaaBuffer);
+  // logger.info(", connection: %o", connection);
 
   logger.debug(
     "relaySolana: checking to see if vaa has already been redeemed."
