@@ -1,17 +1,31 @@
 import {
   getIsTransferCompletedTerra,
   hexToUint8Array,
+  redeemOnTerra,
 } from "@certusone/wormhole-sdk";
-import { redeemOnTerra, transferFromTerra } from "@certusone/wormhole-sdk";
-import { LCDClient, MnemonicKey, Msg, Wallet } from "@terra-money/terra.js";
-import { logger } from "../helpers";
+import { LCDClient, MnemonicKey } from "@terra-money/terra.js";
 import { ChainConfigInfo } from "../configureEnv";
+import { getLogger } from "../helpers/logHelper";
+
+const logger = getLogger();
 
 export async function relayTerra(
   chainConfigInfo: ChainConfigInfo,
   signedVAA: string,
-  checkOnly: boolean
+  checkOnly: boolean,
+  walletPrivateKey: any
 ) {
+  if (
+    !(
+      chainConfigInfo.terraChainId &&
+      chainConfigInfo.terraCoin &&
+      chainConfigInfo.terraGasPriceUrl &&
+      chainConfigInfo.terraName
+    )
+  ) {
+    logger.error("Terra relay was called without proper instantiation.");
+    throw new Error("Terra relay was called without proper instantiation.");
+  }
   const signedVaaArray = hexToUint8Array(signedVAA);
   const lcdConfig = {
     URL: chainConfigInfo.nodeUrl,
@@ -20,15 +34,13 @@ export async function relayTerra(
   };
   const lcd = new LCDClient(lcdConfig);
   const mk = new MnemonicKey({
-    mnemonic: chainConfigInfo.walletPrivateKey,
+    mnemonic: walletPrivateKey,
   });
   const wallet = lcd.wallet(mk);
 
   logger.info(
     "relayTerra: terraChainId: [" +
       chainConfigInfo.terraChainId +
-      "], private key: [" +
-      chainConfigInfo.walletPrivateKey +
       "], tokenBridgeAddress: [" +
       chainConfigInfo.tokenBridgeAddress +
       "], accAddress: [" +

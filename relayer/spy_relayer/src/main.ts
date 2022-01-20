@@ -1,37 +1,40 @@
-import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
-
-import * as spy_listen from "./spy_listen";
-import * as spy_worker from "./spy_worker";
-import * as spy_rest from "./spy_rest";
-import * as helpers from "./helpers";
-import { logger } from "./helpers";
-import { PromHelper, PromMode } from "./promHelpers";
-
-setDefaultWasm("node");
-
-var configFile: string = process.env.SPY_RELAY_CONFIG
+//These have to run first so that the process variables are set up when the other modules are instantiated.
+const configFile: string = process.env.SPY_RELAY_CONFIG
   ? process.env.SPY_RELAY_CONFIG
   : ".env.sample";
-
 console.log("loading config file [%s]", configFile);
 require("dotenv").config({ path: configFile });
 
-// Set up the logger.
-helpers.initLogger();
-logger.info("spy_relay using config file [" + configFile + "]");
+import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+import { getCommonEnvironment } from "./configureEnv";
+import { getLogger } from "./helpers/logHelper";
+import { PromHelper, PromMode } from "./helpers/promHelpers";
+import * as redisHelper from "./helpers/redisHelper";
+import * as restListener from "./listener/rest_listen";
+import * as spyListener from "./listener/spy_listen";
+import * as relayWorker from "./relayer/relay_worker";
+
+export enum ProcessType {
+  LISTEN_ONLY = "--listen_only",
+  RELAY_ONLY = "--relay_only",
+  SPY_AND_RELAY = "spy and relay",
+}
+
+setDefaultWasm("node");
+const logger = getLogger();
 
 // Load the relay config data.
-var runListen: boolean = true;
-var runWorker: boolean = true;
-var runRest: boolean = true;
-var foundOne: boolean = false;
+let runListen: boolean = true;
+let runWorker: boolean = true;
+let runRest: boolean = true;
+let foundOne: boolean = false;
+let error: string = "";
 
-var error: boolean = false;
 for (let idx = 0; idx < process.argv.length; ++idx) {
   if (process.argv[idx] === "--listen_only") {
     if (foundOne) {
       logger.error('May only specify one of "--listen_only" or "--relay_only"');
-      error = true;
+      error = "Multiple args found of --listen_only and --relay_only";
       break;
     }
 
@@ -45,7 +48,7 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
       logger.error(
         'May only specify one of "--listen_only", "--relay_only" or "--rest_only"'
       );
-      error = true;
+      error = "Multiple args found of --listen_only and --relay_only";
       break;
     }
 
@@ -56,18 +59,19 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
   }
 }
 
+if (!foundOne) {
+  logger.info("spy_relay is running both the listener and relayer");
+}
+
 if (
   !error &&
-  helpers.init(runListen || runRest) &&
-  spy_listen.init(runListen) &&
-  spy_worker.init(runWorker) &&
-  spy_rest.init(runRest)
+  redisHelper.init() &&
+  spyListener.init(runListen) &&
+  relayWorker.init(runWorker) &&
+  restListener.init(runRest)
 ) {
-  // Set up the Prometheus metrics counter
-  var promPort = 8081;
-  if (process.env.PROM_PORT) {
-    promPort = parseInt(process.env.PROM_PORT);
-  }
+  const commonEnv = getCommonEnvironment();
+  const { promPort, readinessPort } = commonEnv;
   logger.info("prometheus client listening on port " + promPort);
   let promClient: PromHelper;
   const runBoth: boolean = runListen && runWorker;
@@ -82,12 +86,11 @@ if (
     promClient = new PromHelper("spy_relay", promPort, PromMode.Both);
   }
 
-  if (runListen) spy_listen.run(promClient);
-  if (runWorker) spy_worker.run(promClient);
-  if (runRest) spy_rest.run();
+  if (runListen) spyListener.run(promClient);
+  if (runWorker) relayWorker.run(promClient);
+  if (runRest) restListener.run();
 
-  if (process.env.READINESS_PORT) {
-    const readinessPort: number = parseInt(process.env.READINESS_PORT);
+  if (readinessPort) {
     const Net = require("net");
     const readinessServer = new Net.Server();
     readinessServer.listen(readinessPort, function () {

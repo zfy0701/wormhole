@@ -7,32 +7,31 @@ import {
 import { Signer } from "@ethersproject/abstract-signer";
 import { ethers } from "ethers";
 import { ChainConfigInfo } from "../configureEnv";
+import { getLogger } from "../helpers/logHelper";
 
-import { logger } from "../helpers";
+const logger = getLogger();
 
 export async function relayEVM(
   chainConfigInfo: ChainConfigInfo,
   signedVAA: string,
   unwrapNative: boolean,
-  checkOnly: boolean
+  checkOnly: boolean,
+  walletPrivateKey: string
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
   let provider = new ethers.providers.WebSocketProvider(
     chainConfigInfo.nodeUrl
   );
-  const signer: Signer = new ethers.Wallet(
-    chainConfigInfo.walletPrivateKey,
-    provider
-  );
+  const signer: Signer = new ethers.Wallet(walletPrivateKey, provider);
 
   logger.info(
     "relayEVM(" +
       chainConfigInfo.chainName +
       "): " +
       (unwrapNative ? ", will unwrap" : "") +
-      ", private key: [" +
-      chainConfigInfo.walletPrivateKey +
-      "]"
+      ", " +
+      "pubkey : " +
+      signer.getAddress()
   );
 
   logger.debug(

@@ -5,11 +5,11 @@
   "main": "spy_relay.js",
   "scripts": {
     "build": "tsc",
-    "spy_relay": "node lib/spy_relay.js",
-    "tilt_listener": "SPY_RELAY_CONFIG=.env.tilt.listener node lib/spy_relay.js --listen_only",
-    "tilt_relayer": "SPY_RELAY_CONFIG=.env.tilt.relayer node lib/spy_relay.js --relay_only",
-    "listen_only": "node lib/spy_relay.js --listen_only",
-    "relay_only": "node lib/spy_relay.js --relay_only",
+    "spy_relay": "node lib/main.js",
+    "tilt_listener": "SPY_RELAY_CONFIG=.env.tilt.listener node lib/main.js --listen_only",
+    "tilt_relayer": "SPY_RELAY_CONFIG=.env.tilt.relayer node lib/main.js --relay_only",
+    "listen_only": "node lib/main.js --listen_only",
+    "relay_only": "node lib/main.js --relay_only",
     "test": "jest --config jestconfig.json --verbose"
   },
   "author": "",

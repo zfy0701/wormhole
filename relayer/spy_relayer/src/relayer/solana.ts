@@ -2,17 +2,19 @@ import {
   getIsTransferCompletedSolana,
   hexToUint8Array,
   postVaaSolana,
+  redeemOnSolana,
 } from "@certusone/wormhole-sdk";
-import { redeemOnSolana } from "@certusone/wormhole-sdk";
 import { Connection, Keypair } from "@solana/web3.js";
-import { TextEncoder } from "util";
-import { logger } from "../helpers";
 import { ChainConfigInfo } from "../configureEnv";
+import { getLogger } from "../helpers/logHelper";
+
+const logger = getLogger();
 
 export async function relaySolana(
   chainConfigInfo: ChainConfigInfo,
   signedVAAString: string,
-  checkOnly: boolean
+  checkOnly: boolean,
+  walletPrivateKey: Uint8Array
 ) {
   //TODO native transfer & create associated token account
   //TODO close connection
@@ -53,9 +55,7 @@ export async function relaySolana(
     return { redeemed: false, result: "not redeemed" };
   }
 
-  const keypair = Keypair.fromSecretKey(
-    Uint8Array.from(JSON.parse(chainConfigInfo.walletPrivateKey))
-  );
+  const keypair = Keypair.fromSecretKey(walletPrivateKey);
   const payerAddress = keypair.publicKey.toString();
 
   logger.debug("relaySolana: posting the vaa.");

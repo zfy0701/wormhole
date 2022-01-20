@@ -9,19 +9,24 @@ import {
   parseTransferPayload,
 } from "@certusone/wormhole-sdk";
 
-import { logger, RelayResult, Status } from "../helpers";
-import { env } from "../configureEnv";
 import { relayEVM } from "./evm";
 import { relaySolana } from "./solana";
 import { relayTerra } from "./terra";
+import { getRelayerEnvironment } from "../configureEnv";
+import { RelayResult, Status } from "../helpers/redisHelper";
+import { getLogger } from "../helpers/logHelper";
+
+const logger = getLogger();
 
 function getChainConfigInfo(chainId: ChainId) {
+  const env = getRelayerEnvironment();
   return env.supportedChains.find((x) => x.chainId === chainId);
 }
 
 export async function relay(
   signedVAA: string,
-  checkOnly: boolean
+  checkOnly: boolean,
+  walletPrivateKey: any
 ): Promise<RelayResult> {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(signedVAA));
@@ -57,7 +62,8 @@ export async function relay(
         chainConfigInfo,
         signedVAA,
         unwrapNative,
-        checkOnly
+        checkOnly,
+        walletPrivateKey
       );
       return {
         status: evmResult.redeemed ? Status.Completed : Status.Error,
@@ -67,7 +73,12 @@ export async function relay(
 
     if (transferPayload.targetChain === CHAIN_ID_SOLANA) {
       let rResult: RelayResult = { status: Status.Error, result: "" };
-      const retVal = await relaySolana(chainConfigInfo, signedVAA, checkOnly);
+      const retVal = await relaySolana(
+        chainConfigInfo,
+        signedVAA,
+        checkOnly,
+        walletPrivateKey
+      );
       if (retVal.redeemed) {
         rResult.status = Status.Completed;
       }
@@ -77,7 +88,12 @@ export async function relay(
 
     if (transferPayload.targetChain === CHAIN_ID_TERRA) {
       let rResult: RelayResult = { status: Status.Error, result: "" };
-      const retVal = await relayTerra(chainConfigInfo, signedVAA, checkOnly);
+      const retVal = await relayTerra(
+        chainConfigInfo,
+        signedVAA,
+        checkOnly,
+        walletPrivateKey
+      );
       if (retVal.redeemed) {
         rResult.status = Status.Completed;
       }

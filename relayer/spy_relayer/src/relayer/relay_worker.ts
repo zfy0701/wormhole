@@ -21,82 +21,75 @@ import {
 } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
-import * as helpers from "./helpers";
-import { logger } from "./helpers";
-import { loadChainConfig } from "./configureEnv";
-import { relay } from "./relay/main";
-import { PromHelper } from "./promHelpers";
+
 import { hexToUint8Array, parseTransferPayload } from "@certusone/wormhole-sdk";
 import { env } from "process";
 import { RedisClientType } from "redis";
+import { PromHelper } from "../helpers/promHelpers";
+import { getLogger } from "../helpers/logHelper";
+import { getRelayerEnvironment, RelayerEnvironment } from "../configureEnv";
+import {
+  connectToRedis,
+  RedisTables,
+  RelayResult,
+  Status,
+  StorePayload,
+  storePayloadFromJson,
+  storePayloadToJson,
+  WorkerInfo,
+} from "../helpers/redisHelper";
+import { sleep } from "../helpers/utils";
+import { relay } from "./relay";
 
-let redisHost: string;
-let redisPort: number;
 let metrics: PromHelper;
+
+const logger = getLogger();
+let relayerEnv: RelayerEnvironment;
 
 export function init(runWorker: boolean): boolean {
   if (!runWorker) return true;
 
-  if (!process.env.REDIS_HOST) {
-    logger.error("Missing environment variable REDIS_HOST");
+  try {
+    relayerEnv = getRelayerEnvironment();
+  } catch (e) {
+    logger.error(
+      "Encountered error while initiating the relayer environment: " + e
+    );
     return false;
   }
-
-  if (!process.env.REDIS_PORT) {
-    logger.error("Missing environment variable REDIS_PORT");
-    return false;
-  }
-
-  redisHost = process.env.REDIS_HOST;
-  redisPort = parseInt(process.env.REDIS_PORT);
-
-  if (!loadChainConfig()) return false;
 
   return true;
 }
 
 export async function run(ph: PromHelper) {
   metrics = ph;
-  let workerArray = new Array();
-  if (process.env.WORKER_TARGET_CHAINS) {
-    const parsedJsonWorkers = eval(process.env.WORKER_TARGET_CHAINS);
-    logger.info("Attempting to parse worker target chains...");
+  let workerArray: WorkerInfo[] = new Array();
+  let index = 0;
+  relayerEnv.supportedChains.forEach((chain) => {
+    chain.walletPrivateKey?.forEach((key) => {
+      workerArray.push({
+        walletPrivateKey: key,
+        index: index,
+        targetChainId: chain.chainId,
+      });
+      index++;
+    });
+    chain.solanaPrivateKey?.forEach((key) => {
+      workerArray.push({
+        walletPrivateKey: key,
+        index: index,
+        targetChainId: chain.chainId,
+      });
+      index++;
+    });
+  });
 
-    for (let i = 0; i < parsedJsonWorkers.length; i++) {
-      const workerInfo: helpers.WorkerInfo = {
-        index: i,
-        targetChainId: parseInt(parsedJsonWorkers[i].chain_id),
-      };
-      workerArray.push(workerInfo);
-    }
-  } else if (process.env.SPY_NUM_WORKERS) {
-    let numWorkers: number = parseInt(process.env.SPY_NUM_WORKERS);
-    for (let i = 0; i < numWorkers; i++) {
-      const workerInfo: helpers.WorkerInfo = {
-        index: 0,
-        targetChainId: 0,
-      };
-      workerArray.push(workerInfo);
-    }
-  } else {
-    const workerInfo: helpers.WorkerInfo = {
-      index: 0,
-      targetChainId: 0,
-    };
-    workerArray.push(workerInfo);
-  }
+  //TODO confirm this is handled elsewhere and remove.
+  //setDefaultWasm("node");
 
-  setDefaultWasm("node");
-
-  let clearRedis: boolean = false;
-  if (process.env.CLEAR_REDIS_ON_INIT) {
-    if (process.env.CLEAR_REDIS_ON_INIT === "true") {
-      clearRedis = true;
-    }
-  }
-  if (clearRedis) {
+  if (relayerEnv.clearRedisOnInit) {
     logger.info("Clearing REDIS as per tunable...");
-    const redisClient = await helpers.connectToRedis();
+    const redisClient = await connectToRedis();
     if (!redisClient) {
       logger.error("Failed to connect to redis to clear tables.");
       return;
@@ -114,7 +107,8 @@ export async function run(ph: PromHelper) {
     (async () => {
       let myWorkerIdx = workerArray[workerIdx].index;
       let myTgtChainId = workerArray[workerIdx].targetChainId;
-      const redisClient = await helpers.connectToRedis();
+      let myPrivateKey = workerArray[workerIdx].walletPrivateKey;
+      const redisClient = await connectToRedis();
       logger.info(
         "Spinning up worker[" +
           myWorkerIdx +
@@ -127,7 +121,7 @@ export async function run(ph: PromHelper) {
       }
 
       while (true) {
-        await redisClient.select(helpers.INCOMING);
+        await redisClient.select(RedisTables.INCOMING);
         for await (const si_key of redisClient.scanIterator()) {
           const si_value = await redisClient.get(si_key);
           if (si_value) {
@@ -142,8 +136,7 @@ export async function run(ph: PromHelper) {
             //     si_value
             // );
 
-            let storePayload: helpers.StorePayload =
-              helpers.storePayloadFromJson(si_value);
+            let storePayload: StorePayload = storePayloadFromJson(si_value);
             // Check to see if this worker should handle this VAA
             if (myTgtChainId !== 0) {
               const { parse_vaa } = await importCoreWasm();
@@ -192,7 +185,7 @@ export async function run(ph: PromHelper) {
               }
             }
             // Move this entry from incoming store to working store
-            await redisClient.select(helpers.INCOMING);
+            await redisClient.select(RedisTables.INCOMING);
             if ((await redisClient.del(si_key)) === 0) {
               logger.info(
                 "[" +
@@ -203,20 +196,21 @@ export async function run(ph: PromHelper) {
               );
               continue;
             }
-            await redisClient.select(helpers.WORKING);
+            await redisClient.select(RedisTables.WORKING);
             // If this VAA is already in the working store, then no need to add it again.
             // This handles the case of duplicate VAAs from multiple guardians
             const checkVal = await redisClient.get(si_key);
             if (!checkVal) {
-              let payload: helpers.StorePayload =
-                helpers.storePayloadFromJson(si_value);
-              payload.status = helpers.Status.Pending;
-              await redisClient.set(
-                si_key,
-                helpers.storePayloadToJson(payload)
-              );
+              let payload: StorePayload = storePayloadFromJson(si_value);
+              payload.status = Status.Pending;
+              await redisClient.set(si_key, storePayloadToJson(payload));
               // Process the request
-              await processRequest(myWorkerIdx, redisClient, si_key);
+              await processRequest(
+                myWorkerIdx,
+                redisClient,
+                si_key,
+                myPrivateKey
+              );
             } else {
               metrics.incAlreadyExec();
               logger.debug(
@@ -228,23 +222,23 @@ export async function run(ph: PromHelper) {
           }
         }
         // add sleep
-        await helpers.sleep(1000);
+        await sleep(1000);
       }
     })();
     // Stagger the threads so they don't all wake up at once
-    await helpers.sleep(500);
+    await sleep(500);
   }
   // Now spin up audit thread
   (async () => {
     // walk through the working table and check to see if the completed VAAs are actually completed
-    const redisClient = await helpers.connectToRedis();
+    const redisClient = await connectToRedis();
     logger.info("Spinning up audit worker...");
     if (!redisClient) {
       logger.error("audit worker failed to connect to redis!");
       return;
     }
     while (true) {
-      await redisClient.select(helpers.WORKING);
+      await redisClient.select(RedisTables.WORKING);
       for await (const si_key of redisClient.scanIterator()) {
         const si_value = await redisClient.get(si_key);
         if (si_value) {
@@ -252,8 +246,7 @@ export async function run(ph: PromHelper) {
         } else {
           continue;
         }
-        let storePayload: helpers.StorePayload =
-          helpers.storePayloadFromJson(si_value);
+        let storePayload: StorePayload = storePayloadFromJson(si_value);
         // Let things sit in here for 10 minutes
         // After that:
         //    - Toss totally failed VAAs
@@ -274,30 +267,30 @@ export async function run(ph: PromHelper) {
         );
         if (timeDelta > TEN_MINUTES) {
           // Deal with this item
-          if (storePayload.status === helpers.Status.FatalError) {
+          if (storePayload.status === Status.FatalError) {
             // Done with this failed transaction
             logger.debug("Audit thread: discarding FatalError.");
             await redisClient.del(si_key);
             continue;
-          } else if (storePayload.status === helpers.Status.Completed) {
+          } else if (storePayload.status === Status.Completed) {
             // Check for rollback
             logger.debug("Audit thread: checking for rollback.");
-            const rr: helpers.RelayResult = await relay(
-              storePayload.vaa_bytes,
-              true
-            );
+
+            //TODO actually do an isTransferCompleted
+            const rr = { status: Status.Completed };
+
             await redisClient.del(si_key);
-            if (rr.status !== helpers.Status.Completed) {
+            if (rr.status !== Status.Completed) {
               logger.info("Detected a rollback on " + si_key);
               // Remove this item from the WORKING table and move it to INCOMING
-              await redisClient.select(helpers.INCOMING);
+              await redisClient.select(RedisTables.INCOMING);
               await redisClient.set(si_key, si_value);
-              await redisClient.select(helpers.WORKING);
+              await redisClient.select(RedisTables.WORKING);
             }
-          } else if (storePayload.status === helpers.Status.Error) {
+          } else if (storePayload.status === Status.Error) {
             logger.error("Audit thread received Error status.");
             continue;
-          } else if (storePayload.status === helpers.Status.Pending) {
+          } else if (storePayload.status === Status.Pending) {
             logger.error("Audit thread received Pending status.");
             continue;
           } else {
@@ -313,7 +306,7 @@ export async function run(ph: PromHelper) {
         }
       }
       // logger.debug("Audit thread: sleeping...");
-      await helpers.sleep(10000);
+      await sleep(10000);
     }
   })();
 }
@@ -321,11 +314,12 @@ export async function run(ph: PromHelper) {
 async function processRequest(
   myWorkerIdx: number,
   rClient: RedisClientType<any>,
-  key: string
+  key: string,
+  myPrivateKey: any
 ) {
   logger.debug("[" + myWorkerIdx + "] Processing request [" + key + "]...");
   // Get the entry from the working store
-  await rClient.select(helpers.WORKING);
+  await rClient.select(RedisTables.WORKING);
   let value: string | null = await rClient.get(key);
   if (!value) {
     logger.error(
@@ -333,15 +327,15 @@ async function processRequest(
     );
     return;
   }
-  let payload: helpers.StorePayload = helpers.storePayloadFromJson(value);
-  if (payload.status !== helpers.Status.Pending) {
+  let payload: StorePayload = storePayloadFromJson(value);
+  if (payload.status !== Status.Pending) {
     logger.info(
       "[" + myWorkerIdx + "] This key [" + key + "] has already been processed."
     );
     return;
   }
   // Actually do the processing here and update status and time field
-  let relayResult: helpers.RelayResult;
+  let relayResult: RelayResult;
   try {
     logger.info(
       "[" +
@@ -350,7 +344,7 @@ async function processRequest(
         payload.vaa_bytes +
         "]"
     );
-    relayResult = await relay(payload.vaa_bytes, false);
+    relayResult = await relay(payload.vaa_bytes, false, myPrivateKey);
     logger.info(
       "[" + myWorkerIdx + "] processRequest() - relay returned: %o",
       relayResult.status
@@ -364,7 +358,7 @@ async function processRequest(
     );
 
     relayResult = {
-      status: helpers.Status.Error,
+      status: Status.Error,
       result: "Failure",
     };
     if (e && e.message) {
@@ -374,11 +368,11 @@ async function processRequest(
 
   const MAX_RETRIES = 10;
   let retry: boolean = false;
-  if (relayResult.status === helpers.Status.Completed) {
+  if (relayResult.status === Status.Completed) {
     metrics.incSuccesses();
   } else {
     metrics.incFailures();
-    if (relayResult.status === helpers.Status.FatalError) {
+    if (relayResult.status === Status.FatalError) {
       // Invoke fatal error logic here!
       payload.retries = MAX_RETRIES;
     } else {
@@ -391,14 +385,58 @@ async function processRequest(
   payload.status = relayResult.status;
   payload.timestamp = new Date().toString();
   payload.retries++;
-  value = helpers.storePayloadToJson(payload);
+  value = storePayloadToJson(payload);
   if (!retry || payload.retries > MAX_RETRIES) {
     await rClient.set(key, value);
   } else {
     // Remove from the working table
     await rClient.del(key);
     // Put this back into the incoming table
-    await rClient.select(helpers.INCOMING);
+    await rClient.select(RedisTables.INCOMING);
     await rClient.set(key, value);
   }
 }
+
+//One worker should be spawned for each chainId+privateKey combo.
+// async function spawnWorkerThread(workerInfo: WorkerInfo) {
+//   //TODO add logging, and actually implement the functions.
+//   while (true) {
+//     //This will read the WORKING table to see if anything is ready to attempt a relay.
+//     const vaa = await findWorkableItems();
+//     if (vaa) {
+//       //This will attempt the relay and either move the transaction to PENDING, increment its failure count, or discard it if it
+//       //exceeds max retries;
+//       await attemptRelay(workerInfo, vaa);
+
+//       //Continue, so we will attempt more relays, which is the highest priority.
+//       continue;
+//     }
+
+//     //This scans the INCOMING table to see if there are any VAAs which are workable by this worker.
+//     const incomingVaa = await findIncomingVaa(workerInfo);
+//     if (incomingVaa) {
+//       //This will remove a VAA from the INCOMING table and place it in the WORKING table so a worker can pick it up.
+//       await moveVaaToWorking(workerInfo, vaa);
+
+//       //Continue, so the highest priority item can be hit
+//       continue;
+//     }
+//   }
+// }
+
+//One auditor thread should be spawned per worker. This is perhaps overkill, but auditors
+//should not be allowed to block workers, or other auditors.
+// async function spawnAuditorThread(workerInfo: WorkerInfo) {
+//   while (true) {
+//     //This will check to see if anything in the WORKING table is past CONFIRMATION TIME for this worker.
+//     const pendingRecord = findPendingRecordPastDue(workerInfo);
+//     //If so, we will check to see if the transaction rolled back.
+//     const didRollback = checkIfCompleted(pendingRecord);
+
+//     if (didRollback) {
+//       removeRecord(pendingRecord);
+//     } else {
+//       moveVaaToWorking(workerInfo, pendingRecord);
+//     }
+//   }
+// }
