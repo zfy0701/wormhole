@@ -3,6 +3,8 @@ import {
   hexToNativeString,
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
+import { emitter_address } from "@certusone/wormhole-sdk/lib/cjs/solana/nft/nft_bridge_bg";
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { BigNumber } from "ethers";
 import { getListenerEnvironment } from "../configureEnv";
 import { getLogger } from "../helpers/logHelper";
@@ -70,24 +72,6 @@ export async function parseAndValidateVaa(
   }
   const env = getListenerEnvironment();
 
-  const nativeAddress = hexToNativeString(
-    uint8ArrayToHex(parsedVaa.emitterAddress),
-    parsedVaa.emitterChain
-  );
-
-  const isApprovedAddress = env.spyServiceFilters.find((allowedContract) => {
-    parsedVaa &&
-      nativeAddress &&
-      allowedContract.chainId === parsedVaa.emitterChain &&
-      allowedContract.emitterAddress.toLowerCase() ===
-        nativeAddress.toLowerCase();
-  });
-
-  if (!isApprovedAddress) {
-    logger.debug("Specified vaa is not from an approved address.");
-    return "VAA is not from a monitored contract.";
-  }
-
   const isCorrectPayloadType = parsedVaa.payload[0] === 1;
 
   if (!isCorrectPayloadType) {
@@ -113,9 +97,11 @@ export async function parseAndValidateVaa(
   );
 
   const isApprovedToken = env.supportedTokens.find((token) => {
-    originAddressNative &&
+    return (
+      originAddressNative &&
       token.address.toLowerCase() === originAddressNative.toLowerCase() &&
-      token.chainId === parsedPayload.originChain;
+      token.chainId === parsedPayload.originChain
+    );
   });
 
   if (!isApprovedToken) {
@@ -191,11 +177,13 @@ export const parseTransferPayload = (arr: Buffer) => ({
 });
 
 //TODO move these to the official SDK
-export async function parseVaaTyped(signedVAA: Uint8Array) {
-  const { parse_vaa } = await import(
-    "@certusone/wormhole-sdk/lib/esm/solana/core/bridge"
-  );
+async function parseVaaTyped(signedVAA: Uint8Array) {
+  logger.info("about to parse this signedVaa: " + signedVAA);
+  const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(signedVAA);
+  logger.info(
+    "Here is the parsedVaa after it's through the wasm: " + parsedVAA
+  );
   return {
     timestamp: parseInt(parsedVAA.timestamp),
     nonce: parseInt(parsedVAA.nonce),

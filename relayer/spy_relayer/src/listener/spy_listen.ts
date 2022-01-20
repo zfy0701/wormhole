@@ -110,8 +110,9 @@ export async function run(ph: PromHelper) {
       stream = await subscribeSignedVAA(client, wrappedFilters);
 
       //TODO validate that this is the correct type of the vaaBytes
-      stream.on("data", ({ vaaBytes }: { vaaBytes: string }) => {
-        processVaa(vaaBytes);
+      stream.on("data", ({ vaaBytes }: { vaaBytes: Buffer }) => {
+        const asUint8 = new Uint8Array(vaaBytes);
+        processVaa(asUint8);
       });
 
       let connected = true;
@@ -142,13 +143,10 @@ export async function run(ph: PromHelper) {
   }
 }
 
-async function processVaa(hexVaa: string) {
+async function processVaa(rawVaa: Uint8Array) {
   //TODO, verify this is correct & potentially swap to using hex encoding
   const vaaUri =
-    vaaUriPrelude +
-    encodeURIComponent(Buffer.from(hexToUint8Array(hexVaa)).toString("base64"));
-  logger.debug("processVaa: vaaBytes: %o", hexVaa);
-  const rawVaa = hexToUint8Array(hexVaa);
+    vaaUriPrelude + encodeURIComponent(Buffer.from(rawVaa).toString("base64"));
 
   const validationResults: ParsedVaa<ParsedTransferPayload> | string =
     await parseAndValidateVaa(rawVaa);
@@ -187,7 +185,7 @@ async function processVaa(hexVaa: string) {
       "]"
   );
   const storeKey = storeKeyFromParsedVAA(parsedVAA);
-  const storePayload = initPayloadWithVAA(hexVaa);
+  const storePayload = initPayloadWithVAA(uint8ArrayToHex(rawVaa));
 
   logger.debug(
     "storing: key: [" +

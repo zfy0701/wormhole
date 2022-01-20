@@ -34,7 +34,11 @@
     "walletPrivateKey": [
       "notice oak worry limit wrap speak medal online prefer cluster roof addict wrist behave treat actual wasp year salad speed social layer crew genius"
     ],
-    "wrappedAsset": "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
+    "wrappedAsset": "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d",
+    "terraName": "localterra",
+    "terraChainId": "columbus-5",
+    "terraCoin": "uluna",
+    "terraGasPriceUrl": "http://terra-fcd:3060/v1/txs/gas_prices"
   },
   {
     "chainId": 4,

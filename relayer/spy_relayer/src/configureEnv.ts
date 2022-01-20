@@ -136,8 +136,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
       "Missing required environment variable: SPY_SERVICE_FILTERS"
     );
   } else {
-    // const array = JSON.parse(process.env.SPY_SERVICE_FILTERS);
-    const array = eval(process.env.SPY_SERVICE_FILTERS);
+    const array = JSON.parse(process.env.SPY_SERVICE_FILTERS);
     console.log("Spy service filters: ", array);
     // if (!array.foreach) {
     if (!array || !Array.isArray(array)) {
@@ -151,10 +150,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
           );
           spyServiceFilters.push({
             chainId: filter.chainId as ChainId,
-            emitterAddress: nativeToHexString(
-              filter.emitterAddress,
-              filter.chainId
-            ) as string,
+            emitterAddress: filter.emitterAddress,
           });
         } else {
           throw new Error("Invalid filter record. " + filter.toString());
@@ -314,12 +310,14 @@ function createSolanaChainConfig(config: any): ChainConfigInfo {
   }
   if (
     !(
-      config.solanaPrivateKey &&
-      config.solanaPrivateKey.length &&
-      config.solanaPrivateKey.forEach
+      config.walletPrivateKey &&
+      config.walletPrivateKey.length &&
+      config.walletPrivateKey.forEach
     )
   ) {
-    throw new Error("Missing required field in chain config: solanaPrivateKey");
+    throw new Error(
+      "Missing required field in chain config: walletPrivateKey (SOLANA!)"
+    );
   }
   if (!config.bridgeAddress) {
     throw new Error("Missing required field in chain config: bridgeAddress");
@@ -335,7 +333,7 @@ function createSolanaChainConfig(config: any): ChainConfigInfo {
   bridgeAddress = config.bridgeAddress;
   wrappedAsset = config.wrappedAsset;
 
-  config.solanaPrivateKey.forEach((item: any) => {
+  config.walletPrivateKey.forEach((item: any) => {
     const uint = Uint8Array.from(item);
     solanaPrivateKey.push(uint);
   });
