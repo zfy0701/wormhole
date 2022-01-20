@@ -137,10 +137,10 @@ export function getKey(chainId: ChainId, address: string) {
 }
 
 export enum Status {
-  Pending,
-  Completed,
-  Error,
-  FatalError,
+  Pending = 1,
+  Completed = 2,
+  Error = 3,
+  FatalError = 4,
 }
 
 export type RelayResult = {

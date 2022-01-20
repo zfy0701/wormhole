@@ -372,6 +372,9 @@ async function processRequest(
     metrics.incSuccesses();
   } else {
     metrics.incFailures();
+    if (payload.retries >= MAX_RETRIES) {
+      relayResult.status = Status.FatalError;
+    }
     if (relayResult.status === Status.FatalError) {
       // Invoke fatal error logic here!
       payload.retries = MAX_RETRIES;
