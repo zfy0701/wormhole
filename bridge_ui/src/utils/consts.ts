@@ -32,7 +32,7 @@ export interface ChainInfo {
   name: string;
   logo: string;
 }
-export const CHAINS =
+export const CHAINS: ChainInfo[] =
   CLUSTER === "mainnet"
     ? [
         {
@@ -136,8 +136,7 @@ export const CHAINS =
           logo: terraIcon,
         },
       ];
-export const BETA_CHAINS: ChainId[] =
-  CLUSTER === "mainnet" ? [CHAIN_ID_OASIS] : [];
+export const BETA_CHAINS: ChainId[] = CLUSTER === "mainnet" ? [] : [];
 export const CHAINS_WITH_NFT_SUPPORT = CHAINS.filter(
   ({ id }) =>
     id === CHAIN_ID_AVAX ||
@@ -154,13 +153,7 @@ export const CHAINS_BY_ID: ChainsById = CHAINS.reduce((obj, chain) => {
   return obj;
 }, {} as ChainsById);
 
-export const COMING_SOON_CHAINS = [
-  {
-    id: CHAIN_ID_OASIS,
-    name: "Oasis",
-    logo: oasisIcon,
-  },
-];
+export const COMING_SOON_CHAINS: ChainInfo[] = [];
 export const getDefaultNativeCurrencySymbol = (chainId: ChainId) =>
   chainId === CHAIN_ID_SOLANA
     ? "SOL"
@@ -549,7 +542,7 @@ export const WAVAX_DECIMALS = 18;
 
 export const WROSE_ADDRESS =
   CLUSTER === "mainnet"
-    ? "0xE4F5F5910b347A5AEFd12745a98eEEA97F69180e"
+    ? "0x21C718C22D52d0F3a789b752D4c2fD5908a8A733"
     : CLUSTER === "testnet"
     ? "0x792296e2a15e6Ceb5f5039DecaE7A1f25b00B0B0"
     : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
@@ -796,6 +789,7 @@ export const getMigrationAssetMap = (chainId: ChainId) => {
 };
 
 export const SUPPORTED_TERRA_TOKENS = ["uluna", "uusd"];
+export const TERRA_DEFAULT_FEE_DENOM = SUPPORTED_TERRA_TOKENS[0];
 
 export const TERRA_FCD_BASE =
   CLUSTER === "mainnet"

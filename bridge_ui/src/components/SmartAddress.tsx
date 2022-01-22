@@ -117,7 +117,9 @@ export default function SmartAddress({
         CLUSTER === "testnet" ? "testnet." : ""
       }snowtrace.io/address/${useableAddress}`
     : chainId === CHAIN_ID_OASIS
-    ? null
+    ? `https://${
+        CLUSTER === "testnet" ? "testnet." : ""
+      }explorer.emerald.oasis.dev/address/${useableAddress}`
     : chainId === CHAIN_ID_SOLANA
     ? `https://explorer.solana.com/address/${useableAddress}${
         CLUSTER === "testnet"

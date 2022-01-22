@@ -6,6 +6,7 @@ import {
   CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
+  CHAIN_ID_TERRA,
   isEVMChain,
   WSOL_ADDRESS,
 } from "@certusone/wormhole-sdk";
@@ -40,7 +41,9 @@ import ButtonWithLoader from "../ButtonWithLoader";
 import KeyAndBalance from "../KeyAndBalance";
 import SmartAddress from "../SmartAddress";
 import { SolanaCreateAssociatedAddressAlternate } from "../SolanaCreateAssociatedAddress";
+import SolanaTPSWarning from "../SolanaTPSWarning";
 import StepDescription from "../StepDescription";
+import TerraFeeDenomPicker from "../TerraFeeDenomPicker";
 import AddToMetamask from "./AddToMetamask";
 import WaitingForWalletMessage from "./WaitingForWalletMessage";
 
@@ -112,6 +115,9 @@ function Redeem() {
     <>
       <StepDescription>Receive the tokens on the target chain</StepDescription>
       <KeyAndBalance chainId={targetChain} />
+      {targetChain === CHAIN_ID_TERRA && (
+        <TerraFeeDenomPicker disabled={disabled} />
+      )}
       {isNativeEligible && (
         <FormControlLabel
           control={
@@ -124,6 +130,7 @@ function Redeem() {
           label="Automatically unwrap to native currency"
         />
       )}
+      {targetChain === CHAIN_ID_SOLANA && <SolanaTPSWarning />}
       {targetChain === CHAIN_ID_SOLANA ? (
         <SolanaCreateAssociatedAddressAlternate />
       ) : null}
