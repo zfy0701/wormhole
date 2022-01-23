@@ -1,8 +1,12 @@
 import {
   ChainId,
+  CHAIN_ID_BSC,
+  CHAIN_ID_SOLANA,
   hexToNativeString,
+  hexToUint8Array,
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
+import { ChainID } from "@certusone/wormhole-sdk/lib/cjs/proto/publicrpc/v1/publicrpc";
 import { emitter_address } from "@certusone/wormhole-sdk/lib/cjs/solana/nft/nft_bridge_bg";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { BigNumber } from "ethers";
@@ -72,6 +76,37 @@ export async function parseAndValidateVaa(
   }
   const env = getListenerEnvironment();
 
+  //TODO investigate why the emitter address on the VAA is not the same address which the spy uses to
+  //create its subscriptions
+
+  // const nativeAddress = hexToNativeString(
+  //   uint8ArrayToHex(parsedVaa.emitterAddress),
+  //   parsedVaa.emitterChain
+  // );
+
+  // logger.info("nativeAddress format for emitter address in validator:" + nativeAddress);
+
+  // const isApprovedAddress = env.spyServiceFilters.find((allowedContract) => {
+  //   console.log(
+  //     parsedVaa,
+  //     nativeAddress,
+  //     allowedContract.emitterAddress,
+  //     "in approved address"
+  //   );
+  //   return (
+  //     parsedVaa &&
+  //     nativeAddress &&
+  //     allowedContract.chainId === parsedVaa.emitterChain &&
+  //     allowedContract.emitterAddress.toLowerCase() ===
+  //       nativeAddress.toLowerCase()
+  //   );
+  // });
+
+  // if (!isApprovedAddress) {
+  //   logger.debug("Specified vaa is not from an approved address.");
+  //   return "VAA is not from a monitored contract.";
+  // }
+
   const isCorrectPayloadType = parsedVaa.payload[0] === 1;
 
   if (!isCorrectPayloadType) {
@@ -97,6 +132,10 @@ export async function parseAndValidateVaa(
   );
 
   const isApprovedToken = env.supportedTokens.find((token) => {
+    console.log(
+      "in approved token, origin address native is: ",
+      originAddressNative
+    );
     return (
       originAddressNative &&
       token.address.toLowerCase() === originAddressNative.toLowerCase() &&
@@ -177,7 +216,7 @@ export const parseTransferPayload = (arr: Buffer) => ({
 });
 
 //TODO move these to the official SDK
-async function parseVaaTyped(signedVAA: Uint8Array) {
+export async function parseVaaTyped(signedVAA: Uint8Array) {
   logger.info("about to parse this signedVaa: " + signedVAA);
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(signedVAA);
