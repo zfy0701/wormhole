@@ -255,7 +255,7 @@ export async function pushVaaToRedis(
   );
 }
 
-async function clearRedis() {
+export async function clearRedis() {
   const redisClient = await connectToRedis();
   if (!redisClient) {
     logger.error("Failed to connect to redis to clear tables.");
