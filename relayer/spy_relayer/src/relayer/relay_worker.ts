@@ -450,4 +450,66 @@ async function processRequest(
     await rClient.select(RedisTables.INCOMING);
     await rClient.set(key, value);
   }
+  await rClient.quit();
 }
+
+// async function findWorkableItems(
+//   workerInfo: WorkerInfo
+// ): Promise<WorkableItem[]> {
+//   let workableItems: WorkableItem[] = [];
+//   const redisClient = await connectToRedis();
+//   if (!redisClient) {
+//     logger.error(
+//       "Worker [" +
+//         workerInfo.index +
+//         "] Failed to connect to redis inside findWorkableItems()!"
+//     );
+//     return workableItems;
+//   }
+//   await redisClient.select(RedisTables.INCOMING);
+//   for await (const si_key of redisClient.scanIterator()) {
+//     const si_value = await redisClient.get(si_key);
+//     if (si_value) {
+//       let storePayload: StorePayload = storePayloadFromJson(si_value);
+//       // Check to see if this worker should handle this VAA
+//       if (workerInfo.targetChainId !== 0) {
+//         const { parse_vaa } = await importCoreWasm();
+//         const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
+//         const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+//         const transferPayload = parseTransferPayload(payloadBuffer);
+//         const tgtChainId = transferPayload.targetChain;
+//         if (tgtChainId !== workerInfo.targetChainId) {
+//           logger.debug(
+//             "Skipping mismatched chainId.  Received: " +
+//               tgtChainId +
+//               ", want: " +
+//               workerInfo.targetChainId
+//           );
+//           continue;
+//         }
+//       }
+
+//       // Check to see if this is a retry and if it is time to retry
+//       if (storePayload.retries > 0) {
+//         const BACKOFF_TIME = 1000; // 10 seconds in milliseconds
+//         // const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
+//         const MAX_BACKOFF_TIME = 10000; // 24 hours in milliseconds
+//         // calculate retry time
+//         const now: Date = new Date();
+//         const old: Date = new Date(storePayload.timestamp);
+//         const timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
+//         const waitTime: number = Math.min(
+//           BACKOFF_TIME ** storePayload.retries,
+//           MAX_BACKOFF_TIME
+//         );
+//         if (timeDelta < waitTime) {
+//           // Not enough time has passed
+//           continue;
+//         }
+//       }
+//       workableItems.push({ key: si_key, value: si_value });
+//     }
+//   }
+//   redisClient.quit();
+//   return workableItems;
+// }
