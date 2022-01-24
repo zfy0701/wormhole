@@ -87,21 +87,6 @@ function createWorkerInfos() {
   return workerArray;
 }
 
-async function clearRedis() {
-  if (relayerEnv.clearRedisOnInit) {
-    logger.info("Clearing REDIS as per tunable...");
-    const redisClient = await connectToRedis();
-    if (!redisClient) {
-      logger.error("Failed to connect to redis to clear tables.");
-      return;
-    }
-    await redisClient.FLUSHALL();
-    redisClient.quit();
-  } else {
-    logger.info("NOT clearing REDIS.");
-  }
-}
-
 async function spawnWorkerThreads(workerArray: WorkerInfo[]) {
   workerArray.forEach((workerInfo) => {
     spawnWorkerThread(workerInfo);
@@ -346,7 +331,12 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
 export async function run(ph: PromHelper) {
   metrics = ph;
 
-  await clearRedis();
+  if (relayerEnv.clearRedisOnInit) {
+    logger.info("Clearing REDIS as per tunable...");
+    await clearRedis();
+  } else {
+    logger.info("NOT clearing REDIS.");
+  }
 
   let workerArray: WorkerInfo[] = createWorkerInfos();
 

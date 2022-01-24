@@ -254,3 +254,13 @@ export async function pushVaaToRedis(
     storePayloadToJson(storePayload)
   );
 }
+
+async function clearRedis() {
+  const redisClient = await connectToRedis();
+  if (!redisClient) {
+    logger.error("Failed to connect to redis to clear tables.");
+    return;
+  }
+  await redisClient.FLUSHALL();
+  redisClient.quit();
+}
