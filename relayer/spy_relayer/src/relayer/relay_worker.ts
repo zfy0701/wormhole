@@ -258,18 +258,22 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
       }
 
       let storePayload: StorePayload = storePayloadFromJson(si_value);
-
       try {
-        const vaa = await parseVaaTyped(
-          hexToUint8Array(storePayload.vaa_bytes)
-        );
-        const payload = parseTransferPayload(vaa.payload);
-        const chain = payload.targetChain;
+        const { parse_vaa } = await importCoreWasm();
+        const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
+        const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+        const transferPayload = parseTransferPayload(payloadBuffer);
+
+        //   const vaa = await parseVaaTyped(
+        //     hexToUint8Array(storePayload.vaa_bytes)
+        //   );
+        //   const payload = parseTransferPayload(vaa.payload);
+        const chain = transferPayload.targetChain;
         if (chain !== workerInfo.targetChainId) {
           continue;
         }
       } catch (e) {
-        logger.error("Failed to parse a stored VAA: " + e);
+        logger.error("Audit worker Failed to parse a stored VAA: " + e);
         logger.error("si_value of failure: " + si_value);
         continue;
       }
@@ -335,6 +339,7 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
         }
       }
     }
+    await sleep(5000);
   }
 }
 
