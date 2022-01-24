@@ -105,6 +105,7 @@ export async function storeInRedis(name: string, value: string) {
     }
 
     await addToRedis(redisClient, name, value);
+    await redisClient.quit();
   });
 }
 
