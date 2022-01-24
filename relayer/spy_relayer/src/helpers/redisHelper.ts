@@ -119,7 +119,6 @@ export async function addToRedis(
     await redisClient.select(RedisTables.INCOMING);
     await redisClient.set(name, value);
 
-    await redisClient.quit();
     logger.debug("storeInRedis: finished storing in redis.");
   } catch (e) {
     logger.error(

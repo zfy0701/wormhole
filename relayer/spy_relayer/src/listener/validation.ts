@@ -190,6 +190,7 @@ async function checkQueue(key: string): Promise<string | null> {
 
     if (record1) {
       logger.debug("VAA was already in INCOMING table");
+      rClient.quit();
       return "VAA was already in INCOMING table";
     }
 
@@ -197,8 +198,10 @@ async function checkQueue(key: string): Promise<string | null> {
     const record2 = await rClient.get(key);
     if (record2) {
       logger.debug("VAA was already in WORKING table");
+      rClient.quit();
       return "VAA was already in WORKING table";
     }
+    rClient.quit();
   } catch (e) {
     logger.error("Failed to connect to redis");
   }
