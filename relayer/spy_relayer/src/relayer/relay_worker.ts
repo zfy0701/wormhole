@@ -29,6 +29,7 @@ import { PromHelper } from "../helpers/promHelpers";
 import { getLogger } from "../helpers/logHelper";
 import { getRelayerEnvironment, RelayerEnvironment } from "../configureEnv";
 import {
+  clearRedis,
   connectToRedis,
   RedisTables,
   RelayResult,
