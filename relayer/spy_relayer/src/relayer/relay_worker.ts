@@ -48,6 +48,11 @@ let metrics: PromHelper;
 const logger = getLogger();
 let relayerEnv: RelayerEnvironment;
 
+type WorkableItem = {
+  key: string;
+  value: string;
+};
+
 export function init(runWorker: boolean): boolean {
   if (!runWorker) return true;
 
@@ -90,7 +95,7 @@ function createWorkerInfos() {
 
 async function spawnWorkerThreads(workerArray: WorkerInfo[]) {
   workerArray.forEach((workerInfo) => {
-    spawnWorkerThread(workerInfo);
+    spawnWorkerThreadBulk(workerInfo);
     spawnAuditorThread(workerInfo);
   });
 }
@@ -217,7 +222,7 @@ async function spawnWorkerThread(workerInfo: WorkerInfo) {
     } catch (e) {
       logger.error("findWorkableItem failed: " + e);
     }
-    sleep(100);
+    await sleep(100);
   }
 }
 
@@ -453,63 +458,149 @@ async function processRequest(
   await rClient.quit();
 }
 
-// async function findWorkableItems(
-//   workerInfo: WorkerInfo
-// ): Promise<WorkableItem[]> {
-//   let workableItems: WorkableItem[] = [];
-//   const redisClient = await connectToRedis();
-//   if (!redisClient) {
-//     logger.error(
-//       "Worker [" +
-//         workerInfo.index +
-//         "] Failed to connect to redis inside findWorkableItems()!"
-//     );
-//     return workableItems;
-//   }
-//   await redisClient.select(RedisTables.INCOMING);
-//   for await (const si_key of redisClient.scanIterator()) {
-//     const si_value = await redisClient.get(si_key);
-//     if (si_value) {
-//       let storePayload: StorePayload = storePayloadFromJson(si_value);
-//       // Check to see if this worker should handle this VAA
-//       if (workerInfo.targetChainId !== 0) {
-//         const { parse_vaa } = await importCoreWasm();
-//         const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
-//         const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
-//         const transferPayload = parseTransferPayload(payloadBuffer);
-//         const tgtChainId = transferPayload.targetChain;
-//         if (tgtChainId !== workerInfo.targetChainId) {
-//           logger.debug(
-//             "Skipping mismatched chainId.  Received: " +
-//               tgtChainId +
-//               ", want: " +
-//               workerInfo.targetChainId
-//           );
-//           continue;
-//         }
-//       }
+// Redis does not guarantee ordering.  Therefore, it is possible that if workItems are
+// pulled out one at a time, then some workItems could stay in the table indefinitely.
+// This function gathers all the items available at this moment to work on.
+async function findWorkableItems(
+  workerInfo: WorkerInfo
+): Promise<WorkableItem[]> {
+  let workableItems: WorkableItem[] = [];
+  const redisClient = await connectToRedis();
+  if (!redisClient) {
+    logger.error(
+      "Worker [" +
+        workerInfo.index +
+        "] Failed to connect to redis inside findWorkableItems()!"
+    );
+    return workableItems;
+  }
+  await redisClient.select(RedisTables.INCOMING);
+  for await (const si_key of redisClient.scanIterator()) {
+    const si_value = await redisClient.get(si_key);
+    if (si_value) {
+      let storePayload: StorePayload = storePayloadFromJson(si_value);
+      // Check to see if this worker should handle this VAA
+      if (workerInfo.targetChainId !== 0) {
+        const { parse_vaa } = await importCoreWasm();
+        const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
+        const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+        const transferPayload = parseTransferPayload(payloadBuffer);
+        const tgtChainId = transferPayload.targetChain;
+        if (tgtChainId !== workerInfo.targetChainId) {
+          // logger.debug(
+          //   "Skipping mismatched chainId.  Received: " +
+          //     tgtChainId +
+          //     ", want: " +
+          //     workerInfo.targetChainId
+          // );
+          continue;
+        }
+      }
 
-//       // Check to see if this is a retry and if it is time to retry
-//       if (storePayload.retries > 0) {
-//         const BACKOFF_TIME = 1000; // 10 seconds in milliseconds
-//         // const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
-//         const MAX_BACKOFF_TIME = 10000; // 24 hours in milliseconds
-//         // calculate retry time
-//         const now: Date = new Date();
-//         const old: Date = new Date(storePayload.timestamp);
-//         const timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
-//         const waitTime: number = Math.min(
-//           BACKOFF_TIME ** storePayload.retries,
-//           MAX_BACKOFF_TIME
-//         );
-//         if (timeDelta < waitTime) {
-//           // Not enough time has passed
-//           continue;
-//         }
-//       }
-//       workableItems.push({ key: si_key, value: si_value });
-//     }
-//   }
-//   redisClient.quit();
-//   return workableItems;
-// }
+      // Check to see if this is a retry and if it is time to retry
+      if (storePayload.retries > 0) {
+        const BACKOFF_TIME = 10000; // 10 seconds in milliseconds
+        const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
+        // calculate retry time
+        const now: Date = new Date();
+        const old: Date = new Date(storePayload.timestamp);
+        const timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
+        const waitTime: number = Math.min(
+          BACKOFF_TIME ** storePayload.retries,
+          MAX_BACKOFF_TIME
+        );
+        if (timeDelta < waitTime) {
+          // Not enough time has passed
+          continue;
+        }
+      }
+      workableItems.push({ key: si_key, value: si_value });
+    }
+  }
+  redisClient.quit();
+  return workableItems;
+}
+
+//One worker should be spawned for each chainId+privateKey combo.
+async function spawnWorkerThreadBulk(workerInfo: WorkerInfo) {
+  //TODO add logging, and actually implement the functions.
+  logger.info(
+    "Spinning up worker[" +
+      workerInfo.index +
+      "] to handle targetChainId " +
+      workerInfo.targetChainId
+  );
+
+  while (true) {
+    // This will read the INCOMING table for items which are ready to be worked.
+    // The INCOMING table is the only table that has work to do
+    try {
+      const workableItems: WorkableItem[] = await findWorkableItems(workerInfo);
+      // logger.debug( "[" + workerInfo.index + "] received " + workableItems.length + " workable items.");
+      let i: number = 0;
+      for (i = 0; i < workableItems.length; i++) {
+        const workItem: WorkableItem = workableItems[i];
+        if (workItem) {
+          // logger.debug("attempting to move key: " + workItem.key);
+          //This will attempt to move the workable item to the WORKING table
+          if (await moveToWorking(workerInfo, workItem)) {
+            // logger.debug("Moved key: " + workItem.key + " to WORKING table.");
+            await processRequest(
+              workerInfo.index,
+              workItem.key,
+              workerInfo.walletPrivateKey
+            );
+            // logger.debug("Finished processing key: " + workItem.key);
+          } else {
+            logger.error("Cannot move work item from INCOMING to WORKING.");
+          }
+        }
+      }
+    } catch (e) {
+      logger.error("spawnWorkerThread failed processing work items: " + e);
+    }
+    await sleep(500);
+  }
+}
+
+async function moveToWorking(
+  workerInfo: WorkerInfo,
+  workItem: WorkableItem
+): Promise<boolean> {
+  const redisClient = await connectToRedis();
+  if (!redisClient) {
+    logger.error("moveToPending() - failed to connect to Redis.");
+    return false;
+  }
+  // Move this entry from incoming store to working store
+  await redisClient.select(RedisTables.INCOMING);
+  if ((await redisClient.del(workItem.key)) === 0) {
+    logger.info(
+      "[" +
+        workerInfo.index +
+        "] The key [" +
+        workItem.key +
+        "] no longer exists in INCOMING"
+    );
+    await redisClient.quit();
+    return false;
+  }
+  await redisClient.select(RedisTables.WORKING);
+  // If this VAA is already in the working store, then no need to add it again.
+  // This handles the case of duplicate VAAs from multiple guardians
+  const checkVal = await redisClient.get(workItem.key);
+  if (!checkVal) {
+    let payload: StorePayload = storePayloadFromJson(workItem.value);
+    payload.status = Status.Pending;
+    await redisClient.set(workItem.key, storePayloadToJson(payload));
+    await redisClient.quit();
+    return true;
+  } else {
+    metrics.incAlreadyExec();
+    logger.debug(
+      "dropping request [" + workItem.key + "] as already processed"
+    );
+    await redisClient.quit();
+    return false;
+  }
+}
