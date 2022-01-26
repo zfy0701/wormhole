@@ -131,27 +131,15 @@ async function instantiate(codeId, inst_msg) {
     .then((rs) => {
       address = /"contract_address","value":"([^"]+)/gm.exec(rs.raw_log)[1];
     });
-  console.log(`Instantiated ${contract} at ${address} (${convert_terra_address_to_hex(address)})`);
+  console.log(`Instantiated ${codeId} at ${address} (${convert_terra_address_to_hex(address)})`);
   return address;
 }
 
 // example usage of instantiate:
 
-// const contractAddress = await instantiate("wormhole.wasm", {
-//   gov_chain: govChain,
-//   gov_address: Buffer.from(govAddress, "hex").toString("base64"),
-//   guardian_set_expirity: 86400,
-//   initial_guardian_set: {
-//     addresses: [
-//       {
-//         bytes: Buffer.from(
-//           "beFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe",
-//           "hex"
-//         ).toString("base64"),
-//       },
-//     ],
-//     expiration_time: 0,
-//   },
+// const contractAddress = await instantiate(codeId, {
+//   token_bridge_contract: "terra1pseddrv0yfsn76u4zxrjmtf45kdlmalswdv39a",
+//   wormhole_contract: "terra1pd65m0q9tl3v8znnz5f5ltsfegyzah7g42cx5v"
 // });
 
 
