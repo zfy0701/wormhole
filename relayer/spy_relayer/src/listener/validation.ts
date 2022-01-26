@@ -76,8 +76,11 @@ export async function parseAndValidateVaa(
   }
   const env = getListenerEnvironment();
 
-  //TODO investigate why the emitter address on the VAA is not the same address which the spy uses to
-  //create its subscriptions
+  //You have to derive all the emitter addresses from the native addresses, because emitter addresses cannot be mapped backwards to native.
+  //This is especially important because they are only uninvertible on Solana, and if you convert the emitter addresses to native,
+  //It will work for all chains except Solana.
+
+  //TODO calc emitter addresses, and compare against those, rather than getting the natives from the emitter
 
   // const nativeAddress = hexToNativeString(
   //   uint8ArrayToHex(parsedVaa.emitterAddress),

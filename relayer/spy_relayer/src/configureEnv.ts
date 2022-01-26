@@ -6,6 +6,11 @@ import {
 } from "@certusone/wormhole-sdk";
 import { getLogger } from "./helpers/logHelper";
 
+export type SupportedToken = {
+  chainId: ChainId;
+  address: string;
+};
+
 export type CommonEnvironment = {
   logLevel: string;
   promPort: number;
