@@ -2,7 +2,11 @@ import {
   ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
+  getForeignAssetEth,
+  getForeignAssetTerra,
+  hexToUint8Array,
   isEVMChain,
+  nativeToHexString,
   WSOL_DECIMALS,
 } from "@certusone/wormhole-sdk";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
@@ -24,6 +28,8 @@ import { getMultipleAccountsRPC } from "../utils/solana";
 import { getEthereumToken } from "../utils/ethereum";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { sleep } from "../helpers/utils";
+import { Provider } from "@ethersproject/abstract-provider";
+import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 
 let env: RelayerEnvironment;
 const logger = getLogger();
@@ -104,12 +110,12 @@ async function pullBalances(): Promise<WalletBalance[]> {
 async function pullEVMBalance(
   chainInfo: ChainConfigInfo,
   privateKey: string,
-  supportedToken: SupportedToken
+  tokenAddress: string
 ): Promise<WalletBalance> {
   let provider = new ethers.providers.WebSocketProvider(chainInfo.nodeUrl);
   const signer: Signer = new ethers.Wallet(privateKey, provider);
 
-  const token = await getEthereumToken(supportedToken.address, provider);
+  const token = await getEthereumToken(tokenAddress, provider);
   const decimals = await token.decimals();
   const balance = await token.balanceOf(await signer.getAddress());
   const symbol = await token.symbol();
@@ -117,18 +123,18 @@ async function pullEVMBalance(
   const balanceFormatted = formatUnits(balance, decimals);
 
   return {
-    chainId: supportedToken.chainId,
+    chainId: chainInfo.chainId,
     balanceAbs: balance.toString(),
     balanceFormatted: balanceFormatted,
     currencyName: symbol,
-    currencyAddressNative: supportedToken.address,
+    currencyAddressNative: tokenAddress,
   };
 }
 
 async function pullTerraBalance(
   chainInfo: ChainConfigInfo,
   walletPrivateKey: string,
-  address: string
+  tokenAddress: string
 ): Promise<WalletBalance> {
   if (
     !(
@@ -153,10 +159,10 @@ async function pullTerraBalance(
   const wallet = lcd.wallet(mk);
   const walletAddress = wallet.key.accAddress;
 
-  const tokenInfo: any = await lcd.wasm.contractQuery(address, {
+  const tokenInfo: any = await lcd.wasm.contractQuery(tokenAddress, {
     token_info: {},
   });
-  const balanceInfo: any = lcd.wasm.contractQuery(address, {
+  const balanceInfo: any = lcd.wasm.contractQuery(tokenAddress, {
     balance: {
       address: walletAddress,
     },
@@ -170,7 +176,7 @@ async function pullTerraBalance(
       tokenInfo.decimals
     ),
     currencyName: tokenInfo.symbol,
-    currencyAddressNative: address,
+    currencyAddressNative: tokenAddress,
   };
 }
 
@@ -343,4 +349,149 @@ export async function collectWallets() {
     // peg prometheus metrics
     await sleep(ONE_MINUTE);
   }
+}
+
+async function calcForeignAddressesEVM(
+  supportedTokens: SupportedToken[],
+  chainConfigInfo: ChainConfigInfo
+) {
+  let provider = await new ethers.providers.WebSocketProvider(
+    chainConfigInfo.nodeUrl
+  );
+
+  const output: string[] = [];
+  for (const supportedToken of supportedTokens) {
+    const hexAddress = nativeToHexString(
+      supportedToken.address,
+      supportedToken.chainId
+    );
+    if (!hexAddress) {
+      continue;
+    }
+    //This returns a native address
+    let foreignAddress;
+    try {
+      foreignAddress = await getForeignAssetEth(
+        chainConfigInfo.tokenBridgeAddress,
+        provider as any, //why does this typecheck work elsewhere?
+        supportedToken.chainId,
+        hexToUint8Array(hexAddress)
+      );
+    } catch (e) {
+      logger.log("Exception thrown from getForeignAssetEth");
+    }
+
+    if (!foreignAddress) {
+      continue;
+    }
+    output.push(foreignAddress);
+  }
+
+  provider.destroy();
+  return output;
+}
+
+async function calcForeignAddressesTerra(
+  supportedTokens: SupportedToken[],
+  chainConfigInfo: ChainConfigInfo
+) {
+  if (
+    !(
+      chainConfigInfo.terraChainId &&
+      chainConfigInfo.terraCoin &&
+      chainConfigInfo.terraGasPriceUrl &&
+      chainConfigInfo.terraName
+    )
+  ) {
+    logger.error(
+      "Terra wallet balance was called without proper instantiation."
+    );
+    throw new Error(
+      "Terra wallet balance was called without proper instantiation."
+    );
+  }
+  const lcdConfig = {
+    URL: chainConfigInfo.nodeUrl,
+    chainID: chainConfigInfo.terraChainId,
+    name: chainConfigInfo.terraName,
+  };
+  const lcd = new LCDClient(lcdConfig);
+
+  const output: string[] = [];
+  for (const supportedToken of supportedTokens) {
+    const hexAddress = nativeToHexString(
+      supportedToken.address,
+      supportedToken.chainId
+    );
+    if (!hexAddress) {
+      continue;
+    }
+    //This returns a native address
+    let foreignAddress;
+    try {
+      foreignAddress = await getForeignAssetTerra(
+        chainConfigInfo.tokenBridgeAddress,
+        lcd,
+        supportedToken.chainId,
+        hexToUint8Array(hexAddress)
+      );
+    } catch (e) {
+      logger.log("Foreign address exception.");
+    }
+
+    if (!foreignAddress) {
+      continue;
+    }
+    output.push(foreignAddress);
+  }
+
+  return output;
+}
+
+async function pullAllEVMTokens(
+  supportedTokens: SupportedToken[],
+  chainConfig: ChainConfigInfo
+) {
+  const foreignAddresses = await calcForeignAddressesEVM(
+    supportedTokens,
+    chainConfig
+  );
+  const output: WalletBalance[] = [];
+  if (!chainConfig.walletPrivateKey) {
+    return output;
+  }
+  for (const privateKey of chainConfig.walletPrivateKey) {
+    for (const address of foreignAddresses) {
+      const balance = await pullEVMBalance(chainConfig, privateKey, address);
+      if (balance) {
+        output.push(balance);
+      }
+    }
+  }
+
+  return output;
+}
+
+async function pullAllTerraTokens(
+  supportedTokens: SupportedToken[],
+  chainConfig: ChainConfigInfo
+) {
+  const foreignAddresses = await calcForeignAddressesTerra(
+    supportedTokens,
+    chainConfig
+  );
+  const output: WalletBalance[] = [];
+  if (!chainConfig.walletPrivateKey) {
+    return output;
+  }
+  for (const privateKey of chainConfig.walletPrivateKey) {
+    for (const address of foreignAddresses) {
+      const balance = await pullTerraBalance(chainConfig, privateKey, address);
+      if (balance) {
+        output.push(balance);
+      }
+    }
+  }
+
+  return output;
 }
