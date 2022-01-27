@@ -209,6 +209,7 @@ fn render_payload(payload: &[u8]) {
             print_row(&mut buffer, 1, "Type");
             print_row(&mut buffer, 32, "Address");
             print_row(&mut buffer, 2, "Chain");
+            print_row(&mut buffer, 1, "Decimals");
             print_row(&mut buffer, 32, "Symbol");
             print_row(&mut buffer, 32, "Name");
         }
