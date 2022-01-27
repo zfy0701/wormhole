@@ -24,6 +24,7 @@ terra = [
 solana = [
   "solana-program",
   "wormhole-bridge-solana",
+  "token-bridge",
 ]
 
 [profile.release]
@@ -51,11 +52,16 @@ version  = "0.1.0"
 optional = true
 features = [ "no-entrypoint" ]
 
+[dependencies.token-bridge]
+path     = "../../../solana/modules/token_bridge/program"
+version  = "0.1.0"
+optional = true
+features = [ "no-entrypoint" ]
+
 [dependencies.wormhole-bridge-terra]
 path     = "../../../terra/contracts/wormhole"
 version  = "0.1.0"
 optional = true
-
 
 [dev-dependencies]
 byteorder      = "*"

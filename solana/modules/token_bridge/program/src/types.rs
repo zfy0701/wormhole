@@ -23,7 +23,7 @@ use spl_token_metadata::state::Metadata;
 pub type Address = [u8; 32];
 pub type ChainID = u16;
 
-#[derive(Default, Clone, Copy, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 pub struct Config {
     pub wormhole_bridge: Pubkey,
 }

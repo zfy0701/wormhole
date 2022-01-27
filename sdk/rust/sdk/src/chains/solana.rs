@@ -11,6 +11,7 @@ pub use bridge::BridgeData;
 pub use bridge::MessageData;
 pub use bridge::PostVAAData;
 pub use bridge::PostedVAAData;
+pub use bridge::DeserializePayload;
 pub use bridge::VerifySignaturesData;
 pub use bridge::instructions;
 pub use bridge::solitaire as bridge_entrypoint;
@@ -18,6 +19,56 @@ pub use bridge::types::ConsistencyLevel;
 
 use wormhole_core::WormholeError;
 use wormhole_core::VAA;
+
+/// Expose Token Bridge components via the SDK. The submodule lets us disambiguate similar
+/// method/data names from the core and NFT bridge.
+pub mod token_bridge {
+    use super::Pubkey;
+    use std::str::FromStr;
+
+    // Re-Export API.
+    pub use ::token_bridge::messages::{
+        GovernancePayloadUpgrade,
+        PayloadAssetMeta,
+        PayloadGovernanceRegisterChain,
+        PayloadTransfer,
+    };
+    pub use ::token_bridge::types::Config;
+    pub use ::token_bridge::{
+        instructions,
+        CompleteNativeData,
+        CompleteWrappedData,
+        CreateWrappedData,
+        RegisterChainData,
+        TransferNativeData,
+        TransferWrappedData,
+        UpgradeContractData,
+    };
+
+    /// Export Core Mainnet Contract Address
+    #[cfg(feature = "mainnet")]
+    pub fn id() -> Pubkey {
+        Pubkey::from_str("worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth").unwrap()
+    }
+
+    /// Export Core Devnet Contract Address
+    #[cfg(feature = "testnet")]
+    pub fn id() -> Pubkey {
+        Pubkey::from_str("3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5").unwrap()
+    }
+
+    /// Export Local Tilt Devnet Contract Address
+    #[cfg(feature = "devnet")]
+    pub fn id() -> Pubkey {
+        Pubkey::from_str("Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o").unwrap()
+    }
+
+    /// Derives the Wormhole Token Bridge configuration account address.
+    pub fn config(id: &Pubkey) -> Pubkey {
+        let (config, _) = Pubkey::find_program_address(&[b"config"], &id);
+        config
+    }
+}
 
 /// Export Core Mainnet Contract Address
 #[cfg(feature = "mainnet")]
@@ -74,7 +125,7 @@ pub fn read_config(config: &AccountInfo) -> Result<BridgeConfig, WormholeError> 
 /// Deserialize helper for parsing from Borsh encoded VAA's from Solana accounts.
 pub fn read_vaa(vaa: &AccountInfo) -> Result<PostedVAAData, WormholeError> {
     Ok(PostedVAAData::try_from_slice(&vaa.data.borrow())
-       .map_err(|_| WormholeError::DeserializeFailed)?)
+        .map_err(|_| WormholeError::DeserializeFailed)?)
 }
 
 /// This helper method wraps the steps required to invoke Wormhole, it takes care of fee payment,
