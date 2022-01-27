@@ -13,9 +13,10 @@ export enum PromMode {
 }
 
 export class PromHelper {
-  private register = new client.Registry();
-  private walletReg = new client.Registry();
+  private _register = new client.Registry();
+  private _walletReg = new client.Registry();
   // private collectDefaultMetrics = client.collectDefaultMetrics;
+  private _mode: PromMode;
 
   // Actual metrics
   private successCounter = new client.Counter({
@@ -39,33 +40,48 @@ export class PromHelper {
     name: "already_executed",
     help: "number of transfers rejected due to already having been executed",
   });
+
+  // Wallet metrics
+  private demoWalletBalance = new client.Gauge({
+    name: "demo_wallet_balance",
+    help: "The balance of a fake wallet",
+    labelNames: ["timestamp"],
+    registers: [this._walletReg],
+  });
   // End metrics
 
   private server = http.createServer(async (req, res) => {
     // console.log("promHelpers received a request: ", req);
     if (req.url === "/metrics") {
       // Return all metrics in the Prometheus exposition format
-      res.setHeader("Content-Type", this.register.contentType);
-      res.end(await this.register.metrics());
-      // res.write(await this.register.metrics());
-      // res.end(await this.walletReg.metrics());
+      if (this._mode === PromMode.Listen || this._mode == PromMode.Both) {
+        res.setHeader("Content-Type", this._register.contentType);
+        res.end(await this._register.metrics());
+      }
+      if (this._mode === PromMode.Relay || this._mode == PromMode.Both) {
+        res.setHeader("Content-Type", this._register.contentType);
+        res.write(await this._register.metrics());
+        res.write("\n");
+        res.end(await this._walletReg.metrics());
+      }
     }
   });
 
   constructor(name: string, port: number, mode: PromMode) {
-    this.register.setDefaultLabels({
+    this._register.setDefaultLabels({
       app: name,
     });
     // this.collectDefaultMetrics({ register: this.register });
 
+    this._mode = mode;
     // Register each metric
-    if (mode === PromMode.Listen || mode == PromMode.Both) {
-      this.register.registerMetric(this.listenCounter);
+    if (this._mode === PromMode.Listen || this._mode == PromMode.Both) {
+      this._register.registerMetric(this.listenCounter);
     }
-    if (mode === PromMode.Relay || mode == PromMode.Both) {
-      this.register.registerMetric(this.successCounter);
-      this.register.registerMetric(this.failureCounter);
-      this.register.registerMetric(this.alreadyExecutedCounter);
+    if (this._mode === PromMode.Relay || this._mode == PromMode.Both) {
+      this._register.registerMetric(this.successCounter);
+      this._register.registerMetric(this.failureCounter);
+      this._register.registerMetric(this.alreadyExecutedCounter);
     }
     // End registering metric
 
@@ -87,5 +103,22 @@ export class PromHelper {
   }
   incAlreadyExec() {
     this.alreadyExecutedCounter.inc();
+  }
+
+  // Wallet metrics
+  setDemoWalletBalance(bal: number) {
+    this._walletReg.clear();
+    // this.walletReg = new client.Registry();
+    this.demoWalletBalance = new client.Gauge({
+      name: "demo_wallet_balance",
+      help: "The balance of a fake wallet",
+      labelNames: ["timestamp"],
+      registers: [this._walletReg],
+    });
+    this._walletReg.registerMetric(this.demoWalletBalance);
+    let now = new Date();
+    // this.walletDate = now.toString();
+    this.demoWalletBalance.set({ timestamp: now.toString() }, bal);
+    // this.walletBalance.set(bal);
   }
 }

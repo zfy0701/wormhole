@@ -11,7 +11,7 @@ import {
   LCDClient,
   MnemonicKey,
 } from "@terra-money/terra.js";
-import { ethers, Signer } from "ethers";
+import { ethers, Signer, Wallet } from "ethers";
 import { formatUnits } from "ethers/lib/utils";
 import {
   ChainConfigInfo,
@@ -23,6 +23,7 @@ import { getLogger } from "../helpers/logHelper";
 import { getMultipleAccountsRPC } from "../utils/solana";
 import { getEthereumToken } from "../utils/ethereum";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { sleep } from "../helpers/utils";
 
 let env: RelayerEnvironment;
 const logger = getLogger();
@@ -47,30 +48,57 @@ function init() {
   }
 }
 
-async function pullBalances() {
-  //TODOD loop through all the chain configs, calc the public keys, pull their balances, and push to a combo of the loggers and prmometheus
+async function pullBalances(): Promise<WalletBalance[]> {
+  //TODO loop through all the chain configs, calc the public keys, pull their balances, and push to a combo of the loggers and prmometheus
 
   const balances: WalletBalance[] = [];
 
-  for (const chainInfo of env.supportedChains) {
-    for (const privateKey of chainInfo.walletPrivateKey || []) {
-      if (isEVMChain(chainInfo.chainId)) {
-        balances.push(await pullEVMNativeBalance(chainInfo, privateKey));
-      } else if (chainInfo.chainId === CHAIN_ID_TERRA) {
-        balances.concat(await pullTerraNativeBalance(chainInfo, privateKey));
-      } else {
-        logger.error("Invalid chain ID in wallet monitor " + chainInfo.chainId);
-      }
-    }
-
-    for (const solanaPrivateKey of chainInfo.solanaPrivateKey || []) {
-      if (chainInfo.chainId === CHAIN_ID_SOLANA) {
-        balances.push(
-          await pullSolanaNativeBalance(chainInfo, solanaPrivateKey)
-        );
-      }
-    }
+  logger.debug("pulling balances...");
+  if (!env) {
+    logger.error("pullBalances() - no env");
+    return balances;
   }
+  if (!env.supportedChains) {
+    logger.error("pullBalances() - no supportedChains");
+    return balances;
+  }
+  try {
+    for (const chainInfo of env.supportedChains) {
+      if (!chainInfo) break;
+      for (const privateKey of chainInfo.walletPrivateKey || []) {
+        if (!privateKey) break;
+        logger.debug(
+          "Attempting to pull native balance for chainId: " + chainInfo.chainId
+        );
+        if (isEVMChain(chainInfo.chainId)) {
+          logger.info("Attempting to pull EVM balance...");
+          try {
+            balances.push(await pullEVMNativeBalance(chainInfo, privateKey));
+          } catch (e) {
+            logger.error("pullEVMNativeBalance() failed: " + e);
+          }
+        } else if (chainInfo.chainId === CHAIN_ID_TERRA) {
+          logger.info("Attempting to pull TERRA balance...");
+          balances.concat(await pullTerraNativeBalance(chainInfo, privateKey));
+        } else {
+          logger.error(
+            "Invalid chain ID in wallet monitor " + chainInfo.chainId
+          );
+        }
+      }
+
+      for (const solanaPrivateKey of chainInfo.solanaPrivateKey || []) {
+        if (chainInfo.chainId === CHAIN_ID_SOLANA) {
+          balances.push(
+            await pullSolanaNativeBalance(chainInfo, solanaPrivateKey)
+          );
+        }
+      }
+    }
+  } catch (e) {
+    logger.error("pullBalance() - for loop failed: " + e);
+  }
+  return balances;
 }
 
 async function pullEVMBalance(
@@ -180,11 +208,27 @@ async function pullEVMNativeBalance(
   if (!privateKey || !chainInfo.nodeUrl) {
     throw new Error("Bad chainInfo config for EVM chain: " + chainInfo.chainId);
   }
-  let provider = new ethers.providers.WebSocketProvider(chainInfo.nodeUrl);
-  const signer: Signer = new ethers.Wallet(privateKey, provider);
-  const weiAmount = await provider.getBalance(signer.getAddress());
-  const balanceInEth = ethers.utils.formatEther(weiAmount);
 
+  let provider = await new ethers.providers.WebSocketProvider(
+    chainInfo.nodeUrl
+  );
+  if (!provider) throw new Error("bad provider");
+  const signer: Signer = new ethers.Wallet(privateKey, provider);
+  const addr: string = await signer.getAddress();
+  const weiAmount = await provider.getBalance(addr);
+  const balanceInEth = ethers.utils.formatEther(weiAmount);
+  await provider.destroy();
+
+  logger.debug(
+    "chainId: " +
+      chainInfo.chainId +
+      ", balanceAbs: " +
+      weiAmount.toString() +
+      ", balanceFormatted: " +
+      balanceInEth.toString() +
+      ", currencyName: " +
+      chainInfo.chainName
+  );
   return {
     chainId: chainInfo.chainId,
     balanceAbs: weiAmount.toString(),
@@ -225,15 +269,21 @@ async function pullTerraNativeBalance(
   });
   const wallet = lcd.wallet(mk);
   const walletAddress = wallet.key.accAddress;
+  // logger.debug("Terra wallet address: " + walletAddress);
 
   await lcd.bank.balance(walletAddress).then((coins) => {
     // coins doesn't support reduce
     const balancePairs = coins.map(({ amount, denom }) => [denom, amount]);
     const balance = balancePairs.reduce((obj, current) => {
-      [obj[current[0].toString()], current[1].toString()];
+      obj[current[0].toString()] = current[1].toString();
+      logger.debug("Terra coins thingy: " + current[0] + ", => " + current[1]);
+      logger.debug("TerraBalance returning reduced obj: %o", obj);
       return obj;
     }, {} as TerraNativeBalances);
     Object.keys(balance).forEach((key) => {
+      logger.debug(
+        "chainId: " + chainInfo.chainId + ", balanceAbs: " + balance[key]
+      );
       output.push({
         chainId: chainInfo.chainId,
         balanceAbs: balance[key],
@@ -243,6 +293,7 @@ async function pullTerraNativeBalance(
       });
     });
   });
+  logger.debug("TerraBalance returning: %o", output);
   return output;
 }
 
@@ -273,4 +324,23 @@ async function pullSolanaNativeBalance(
     currencyName: chainInfo.chainName,
     currencyAddressNative: chainInfo.chainName,
   };
+}
+
+export async function collectWallets() {
+  const ONE_MINUTE: number = 60000;
+  logger.info("collectWallets() - starting up...");
+  init();
+  logger.debug("collectWallets() - entering while loop...");
+  while (true) {
+    // get wallet amounts
+    logger.debug("collectWallets() - pulling balances...");
+    try {
+      const wallets: WalletBalance[] = await pullBalances();
+    } catch (e) {
+      logger.error("Failed to pullBalances: " + e);
+    }
+    logger.debug("collectWallets() - done pulling balances...");
+    // peg prometheus metrics
+    await sleep(ONE_MINUTE);
+  }
 }

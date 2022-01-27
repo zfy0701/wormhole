@@ -42,6 +42,7 @@ import {
 import { sleep } from "../helpers/utils";
 import { relay } from "./relay";
 import { parseVaaTyped } from "../listener/validation";
+import { collectWallets } from "./walletMonitor";
 
 let metrics: PromHelper;
 
@@ -241,6 +242,7 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
         }
       }
       await redisClient.select(RedisTables.WORKING);
+      let now: Date = new Date();
       for await (const si_key of redisClient.scanIterator()) {
         const si_value = await redisClient.get(si_key);
         if (!si_value) {
@@ -254,10 +256,6 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
           const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
           const transferPayload = parseTransferPayload(payloadBuffer);
 
-          //   const vaa = await parseVaaTyped(
-          //     hexToUint8Array(storePayload.vaa_bytes)
-          //   );
-          //   const payload = parseTransferPayload(vaa.payload);
           const chain = transferPayload.targetChain;
           if (chain !== workerInfo.targetChainId) {
             continue;
@@ -283,7 +281,6 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
         //    - Check to see if successful transactions were rolled back
         //    - Put roll backs into INCOMING table
         //    - Toss legitimately completed transactions
-        let now: Date = new Date();
         let old: Date = new Date(storePayload.timestamp);
         let timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
         const TEN_MINUTES = 600000;
@@ -340,6 +337,7 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
         }
       }
       redisClient.quit();
+      metrics.setDemoWalletBalance(now.getUTCSeconds());
       await sleep(5000);
     } catch (e) {
       logger.error("spawnAuditorThread: caught exception: " + e);
@@ -360,6 +358,11 @@ export async function run(ph: PromHelper) {
   let workerArray: WorkerInfo[] = createWorkerInfos();
 
   spawnWorkerThreads(workerArray);
+  try {
+    collectWallets();
+  } catch (e) {
+    logger.error("Failed to kick off collectWallets: " + e);
+  }
 }
 
 async function processRequest(
