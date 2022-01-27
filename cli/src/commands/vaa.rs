@@ -271,6 +271,30 @@ fn render_payload(payload: &[u8]) {
             print_row(&mut buffer, 32, "Address");
         }
 
+        payload if let Ok((_, r)) = core::GovernanceGuardianSetChange::from_bytes(payload, None) => {
+            println!("Core GuardianSetChange, {} Bytes\n", payload.len());
+            let mut buffer: (usize, &[u8]) = (0, &payload);
+            print_row(&mut buffer, 32, "Module");
+            print_row(&mut buffer, 1, "Action");
+            print_row(&mut buffer, 2, "Chain");
+            print_row(&mut buffer, 4, "NewGuardianSetIndex");
+            let len = buffer.1[0];
+            print_row(&mut buffer, 1, "NewGuardianSetLen");
+            let mut i = 0;
+            while i < len {
+                  print_row(&mut buffer, 20, "key");
+                  i = i + 1;
+            }           
+        }
+
+        payload if let Ok((_, r)) = core::GovernanceSetMessageFee::from_bytes(payload, None) => {
+            println!("Core SetMessageFee, {} Bytes\n", payload.len());
+        }
+
+        payload if let Ok((_, r)) = core::GovernanceTransferFees::from_bytes(payload, None) => {
+            println!("Core TransferFees, {} Bytes\n", payload.len());
+        }
+
         _ => { 
             format!("\n{:x?}", payload); 
         },
