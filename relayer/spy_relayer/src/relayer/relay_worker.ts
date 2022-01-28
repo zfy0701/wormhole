@@ -337,7 +337,7 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
         }
       }
       redisClient.quit();
-      metrics.setDemoWalletBalance(now.getUTCSeconds());
+      // metrics.setDemoWalletBalance(now.getUTCSeconds());
       await sleep(5000);
     } catch (e) {
       logger.error("spawnAuditorThread: caught exception: " + e);
@@ -359,7 +359,7 @@ export async function run(ph: PromHelper) {
 
   spawnWorkerThreads(workerArray);
   try {
-    collectWallets();
+    collectWallets(metrics);
   } catch (e) {
     logger.error("Failed to kick off collectWallets: " + e);
   }

@@ -1,11 +1,14 @@
 import http = require("http");
 import client = require("prom-client");
+import { WalletBalance } from "../relayer/walletMonitor";
+import { getLogger } from "./logHelper";
 
 // NOTE:  To create a new metric:
 // 1) Create a private counter/gauge with appropriate name and help
 // 2) Create a method to set the metric to a value
 // 3) Register the metric
 
+const logger = getLogger();
 export enum PromMode {
   Listen,
   Relay,
@@ -42,12 +45,7 @@ export class PromHelper {
   });
 
   // Wallet metrics
-  private demoWalletBalance = new client.Gauge({
-    name: "demo_wallet_balance",
-    help: "The balance of a fake wallet",
-    labelNames: ["timestamp"],
-    registers: [this._walletReg],
-  });
+  private walletMetrics: client.Gauge<string>[] = [];
   // End metrics
 
   private server = http.createServer(async (req, res) => {
@@ -106,19 +104,38 @@ export class PromHelper {
   }
 
   // Wallet metrics
-  setDemoWalletBalance(bal: number) {
+  handleWalletBalances(balances: WalletBalance[]) {
+    logger.debug("Entered handleWalletBalances...");
+    // Walk through each wallet
+    // create a gauge for the balance
+    // set the gauge
     this._walletReg.clear();
-    // this.walletReg = new client.Registry();
-    this.demoWalletBalance = new client.Gauge({
-      name: "demo_wallet_balance",
-      help: "The balance of a fake wallet",
-      labelNames: ["timestamp"],
-      registers: [this._walletReg],
-    });
-    this._walletReg.registerMetric(this.demoWalletBalance);
-    let now = new Date();
-    // this.walletDate = now.toString();
-    this.demoWalletBalance.set({ timestamp: now.toString() }, bal);
-    // this.walletBalance.set(bal);
+    this.walletMetrics = [];
+    for (const bal of balances) {
+      if (bal.currencyName.length === 0) {
+        bal.currencyName = "UNK";
+      }
+      logger.debug(
+        "handleWalletBalances: " +
+          bal.currencyName +
+          " => " +
+          bal.balanceFormatted
+      );
+      let walletGauge = new client.Gauge({
+        name: bal.currencyName,
+        help: "The balance of " + bal.currencyName,
+        // labelNames: ["timestamp"],
+        registers: [this._walletReg],
+      });
+      let formBal: number;
+      if (!bal.balanceFormatted) {
+        formBal = 0;
+      } else {
+        formBal = parseFloat(bal.balanceFormatted);
+      }
+      walletGauge.set(formBal);
+      this._walletReg.registerMetric(walletGauge);
+      this.walletMetrics.push(walletGauge);
+    }
   }
 }

@@ -84,6 +84,7 @@ export type RelayerEnvironment = {
   redisHost: string;
   redisPort: number;
   clearRedisOnInit: boolean;
+  supportedTokens: { chainId: ChainId; address: string }[];
 };
 
 export type ChainConfigInfo = {
@@ -226,6 +227,7 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   let redisHost: string;
   let redisPort: number;
   let clearRedisOnInit: boolean;
+  let supportedTokens: { chainId: ChainId; address: string }[] = [];
 
   if (!process.env.REDIS_HOST) {
     throw new Error("Missing required environment variable: REDIS_HOST");
@@ -253,11 +255,33 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
 
   supportedChains = loadChainConfig();
 
+  if (!process.env.SUPPORTED_TOKENS) {
+    throw new Error("Missing required environment variable: SUPPORTED_TOKENS");
+  } else {
+    // const array = JSON.parse(process.env.SUPPORTED_TOKENS);
+    const array = eval(process.env.SUPPORTED_TOKENS);
+    if (!array || !Array.isArray(array)) {
+      throw new Error("SUPPORTED_TOKENS is not an array.");
+    } else {
+      array.forEach((token: any) => {
+        if (token.chainId && token.address) {
+          supportedTokens.push({
+            chainId: token.chainId,
+            address: token.address,
+          });
+        } else {
+          throw new Error("Invalid token record. " + token.toString());
+        }
+      });
+    }
+  }
+
   return {
     supportedChains,
     redisHost,
     redisPort,
     clearRedisOnInit,
+    supportedTokens,
   };
 };
 
