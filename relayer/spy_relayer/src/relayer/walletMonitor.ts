@@ -30,6 +30,7 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { sleep } from "../helpers/utils";
 import { Provider } from "@ethersproject/abstract-provider";
 import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { PromHelper } from "../helpers/promHelpers";
 
 let env: RelayerEnvironment;
 const logger = getLogger();
@@ -57,7 +58,7 @@ function init() {
 async function pullBalances(): Promise<WalletBalance[]> {
   //TODO loop through all the chain configs, calc the public keys, pull their balances, and push to a combo of the loggers and prmometheus
 
-  const balances: WalletBalance[] = [];
+  let balances: WalletBalance[] = [];
 
   logger.debug("pulling balances...");
   if (!env) {
@@ -77,15 +78,21 @@ async function pullBalances(): Promise<WalletBalance[]> {
           "Attempting to pull native balance for chainId: " + chainInfo.chainId
         );
         if (isEVMChain(chainInfo.chainId)) {
-          logger.info("Attempting to pull EVM balance...");
+          logger.info("Attempting to pull EVM native balance...");
           try {
             balances.push(await pullEVMNativeBalance(chainInfo, privateKey));
           } catch (e) {
             logger.error("pullEVMNativeBalance() failed: " + e);
           }
+          logger.info("Attempting to pull EVM non-native balance...");
+          balances = balances.concat(
+            await pullAllEVMTokens(env.supportedTokens, chainInfo)
+          );
         } else if (chainInfo.chainId === CHAIN_ID_TERRA) {
-          logger.info("Attempting to pull TERRA balance...");
-          balances.concat(await pullTerraNativeBalance(chainInfo, privateKey));
+          logger.info("Attempting to pull TERRA native balance...");
+          balances = balances.concat(
+            await pullTerraNativeBalance(chainInfo, privateKey)
+          );
         } else {
           logger.error(
             "Invalid chain ID in wallet monitor " + chainInfo.chainId
@@ -104,6 +111,7 @@ async function pullBalances(): Promise<WalletBalance[]> {
   } catch (e) {
     logger.error("pullBalance() - for loop failed: " + e);
   }
+  // logger.debug("returning balances:  %o", balances);
   return balances;
 }
 
@@ -115,20 +123,34 @@ async function pullEVMBalance(
   let provider = new ethers.providers.WebSocketProvider(chainInfo.nodeUrl);
   const signer: Signer = new ethers.Wallet(privateKey, provider);
 
-  const token = await getEthereumToken(tokenAddress, provider);
-  const decimals = await token.decimals();
-  const balance = await token.balanceOf(await signer.getAddress());
-  const symbol = await token.symbol();
-  //const name = await token.name();
-  const balanceFormatted = formatUnits(balance, decimals);
+  try {
+    logger.debug("About to get token for address: " + tokenAddress);
+    const token = await getEthereumToken(tokenAddress, provider);
+    // if (!token.deployTransaction) {
+    //   logger.error("deployTransaction DNE.");
+    // }
+    // logger.debug("About to deployTransaction.wait...");
+    // await token.deployTransaction.wait();
+    // logger.debug("About to get balance...");
+    const balance = await token.balanceOf(await signer.getAddress());
+    // logger.debug("About to get symbol...");
+    const symbol = await token.symbol();
+    // logger.debug("About to get decimals...");
+    const decimals = await token.decimals();
+    //const name = await token.name();
+    const balanceFormatted = formatUnits(balance, decimals);
 
-  return {
-    chainId: chainInfo.chainId,
-    balanceAbs: balance.toString(),
-    balanceFormatted: balanceFormatted,
-    currencyName: symbol,
-    currencyAddressNative: tokenAddress,
-  };
+    return {
+      chainId: chainInfo.chainId,
+      balanceAbs: balance.toString(),
+      balanceFormatted: balanceFormatted,
+      currencyName: symbol,
+      currencyAddressNative: tokenAddress,
+    };
+  } catch (e) {
+    logger.error("pullEVMBalance threw: " + e + "; chainInfo: %o", chainInfo);
+    throw e;
+  }
 }
 
 async function pullTerraBalance(
@@ -283,12 +305,19 @@ async function pullTerraNativeBalance(
     const balance = balancePairs.reduce((obj, current) => {
       obj[current[0].toString()] = current[1].toString();
       logger.debug("Terra coins thingy: " + current[0] + ", => " + current[1]);
-      logger.debug("TerraBalance returning reduced obj: %o", obj);
+      // logger.debug("TerraBalance returning reduced obj: %o", obj);
       return obj;
     }, {} as TerraNativeBalances);
     Object.keys(balance).forEach((key) => {
       logger.debug(
-        "chainId: " + chainInfo.chainId + ", balanceAbs: " + balance[key]
+        "chainId: " +
+          chainInfo.chainId +
+          ", balanceAbs: " +
+          balance[key] +
+          ", balanceFormatted: " +
+          formatUnits(balance[key], 6).toString() +
+          ", currencyName: " +
+          key
       );
       output.push({
         chainId: chainInfo.chainId,
@@ -299,7 +328,7 @@ async function pullTerraNativeBalance(
       });
     });
   });
-  logger.debug("TerraBalance returning: %o", output);
+  // logger.debug("TerraBalance returning: %o", output);
   return output;
 }
 
@@ -332,21 +361,24 @@ async function pullSolanaNativeBalance(
   };
 }
 
-export async function collectWallets() {
+export async function collectWallets(metrics: PromHelper) {
   const ONE_MINUTE: number = 60000;
   logger.info("collectWallets() - starting up...");
   init();
-  logger.debug("collectWallets() - entering while loop...");
   while (true) {
     // get wallet amounts
     logger.debug("collectWallets() - pulling balances...");
+    let wallets: WalletBalance[] = [];
     try {
-      const wallets: WalletBalance[] = await pullBalances();
+      wallets = await pullBalances();
     } catch (e) {
       logger.error("Failed to pullBalances: " + e);
     }
     logger.debug("collectWallets() - done pulling balances...");
     // peg prometheus metrics
+    // logger.debug("collectWallets() - Destined for Prometheus: %o", wallets);
+    metrics.handleWalletBalances(wallets);
+    logger.debug("collectWallets() - Finished metrics call.");
     await sleep(ONE_MINUTE);
   }
 }
@@ -354,20 +386,28 @@ export async function collectWallets() {
 async function calcForeignAddressesEVM(
   supportedTokens: SupportedToken[],
   chainConfigInfo: ChainConfigInfo
-) {
+): Promise<string[]> {
   let provider = await new ethers.providers.WebSocketProvider(
     chainConfigInfo.nodeUrl
   );
 
-  const output: string[] = [];
+  logger.debug("calcForeignAddressesEVM() - entered.");
+  let output: string[] = [];
   for (const supportedToken of supportedTokens) {
     const hexAddress = nativeToHexString(
       supportedToken.address,
       supportedToken.chainId
     );
     if (!hexAddress) {
+      logger.debug(
+        "calcForeignAddressesEVM() - no hexAddress for chainId: " +
+          supportedToken.chainId +
+          ", address: " +
+          supportedToken.address
+      );
       continue;
     }
+    // logger.debug("calcForeignAddressesEVM() - got hex address: " + hexAddress);
     //This returns a native address
     let foreignAddress;
     try {
@@ -456,15 +496,20 @@ async function pullAllEVMTokens(
     supportedTokens,
     chainConfig
   );
+  logger.debug("foreignAddress: %o", foreignAddresses);
   const output: WalletBalance[] = [];
   if (!chainConfig.walletPrivateKey) {
     return output;
   }
   for (const privateKey of chainConfig.walletPrivateKey) {
     for (const address of foreignAddresses) {
-      const balance = await pullEVMBalance(chainConfig, privateKey, address);
-      if (balance) {
-        output.push(balance);
+      try {
+        const balance = await pullEVMBalance(chainConfig, privateKey, address);
+        if (balance) {
+          output.push(balance);
+        }
+      } catch (e) {
+        logger.error("pullEVMBalance failed: " + e);
       }
     }
   }
