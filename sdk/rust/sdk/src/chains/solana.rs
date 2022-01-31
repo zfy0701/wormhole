@@ -90,7 +90,7 @@ pub fn post_message(
     accounts: &[AccountInfo],
     nonce: u32,
 ) -> ProgramResult {
-    // Derive any necessary Pubkeys, derivation makes sure that we match the accounts the are being
+    // Derive any necessary Pubkeys, derivation makes sure that we match the accounts that are being
     // provided by the user as well.
     let id = id();
     let fee_collector = fee_collector(&id);
@@ -111,7 +111,7 @@ pub fn post_message(
             config.fee
         ),
         accounts,
-        &[],
+        &[&emitter_seeds, seeds.unwrap_or(&[])],
     )?;
 
     // Invoke the Wormhole post_message endpoint to create an on-chain message.
