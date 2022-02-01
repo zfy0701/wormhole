@@ -15,19 +15,12 @@
 //   getEmitterAddressTerra,
 // } from "@certusone/wormhole-sdk";
 
-import {
-  importCoreWasm,
-  setDefaultWasm,
-} from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
-
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
-
 import { hexToUint8Array, parseTransferPayload } from "@certusone/wormhole-sdk";
-import { env } from "process";
-import { RedisClientType } from "redis";
-import { PromHelper } from "../helpers/promHelpers";
-import { getLogger } from "../helpers/logHelper";
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { getRelayerEnvironment, RelayerEnvironment } from "../configureEnv";
+import { getLogger } from "../helpers/logHelper";
+import { PromHelper } from "../helpers/promHelpers";
 import {
   clearRedis,
   connectToRedis,
@@ -41,8 +34,12 @@ import {
 } from "../helpers/redisHelper";
 import { sleep } from "../helpers/utils";
 import { relay } from "./relay";
-import { parseVaaTyped } from "../listener/validation";
 import { collectWallets } from "./walletMonitor";
+
+const WORKER_THREAD_RESTART_MS = 10 * 1000;
+const AUDITOR_THREAD_RESTART_MS = 10 * 1000;
+const AUDIT_INTERVAL_MS = 30 * 1000;
+const REDIS_RETRY_MS = 10 * 1000;
 
 let metrics: PromHelper;
 
@@ -96,141 +93,41 @@ function createWorkerInfos() {
 
 async function spawnWorkerThreads(workerArray: WorkerInfo[]) {
   workerArray.forEach((workerInfo) => {
-    spawnWorkerThreadBulk(workerInfo);
+    spawnWorkerThread(workerInfo);
     spawnAuditorThread(workerInfo);
   });
 }
 
-//TODO prevent workers from finding items which are already being used by other Workers. Current implementation has race conditions.
-//Items are considered workable if they are for the target chain of this worker, and have either never failed, or are past their retry time.
-async function findWorkableItem(workerInfo: WorkerInfo) {
-  const redisClient = await connectToRedis();
-  if (!redisClient) return;
-  await redisClient.select(RedisTables.INCOMING);
-  for await (const si_key of redisClient.scanIterator()) {
-    const si_value = await redisClient.get(si_key);
-    if (si_value) {
-      // logger.debug(
-      //   "[" +
-      //     myWorkerIdx +
-      //     ", " +
-      //     myTgtChainId +
-      //     "] SI: " +
-      //     si_key +
-      //     " =>" +
-      //     si_value
-      // );
-
-      let storePayload: StorePayload = storePayloadFromJson(si_value);
-      // Check to see if this worker should handle this VAA
-      const { parse_vaa } = await importCoreWasm();
-      const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
-      const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
-      const transferPayload = parseTransferPayload(payloadBuffer);
-      const tgtChainId = transferPayload.targetChain;
-      if (tgtChainId !== workerInfo.targetChainId) {
-        // logger.debug(
-        //   "Skipping mismatched chainId.  Received: " +
-        //     tgtChainId +
-        //     ", want: " +
-        //     workerInfo.targetChainId
-        // );
-        continue;
-      }
-
-      // Check to see if this is a retry and if it is time to retry
-      if (storePayload.retries > 0) {
-        const BACKOFF_TIME = 10000; // 10 seconds in milliseconds
-        const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
-        // calculate retry time
-        const now: Date = new Date();
-        const old: Date = new Date(storePayload.timestamp);
-        const timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
-        const waitTime: number = Math.min(
-          BACKOFF_TIME ** storePayload.retries,
-          MAX_BACKOFF_TIME
-        );
-        logger.debug(
-          "Checking timestamps:  now: " +
-            now.toString() +
-            ", old: " +
-            old.toString() +
-            ", delta: " +
-            timeDelta +
-            ", waitTime: " +
-            waitTime
-        );
-        if (timeDelta < waitTime) {
-          // Not enough time has passed
-          continue;
-        }
-      }
-      // Move this entry from incoming store to working store
-      await redisClient.select(RedisTables.INCOMING);
-      if ((await redisClient.del(si_key)) === 0) {
-        logger.info(
-          "[" +
-            workerInfo.index +
-            "] The key [" +
-            si_key +
-            "] no longer exists in INCOMING"
-        );
-        continue;
-      }
-      await redisClient.select(RedisTables.WORKING);
-      // If this VAA is already in the working store, then no need to add it again.
-      // This handles the case of duplicate VAAs from multiple guardians
-      const checkVal = await redisClient.get(si_key);
-      if (!checkVal) {
-        let payload: StorePayload = storePayloadFromJson(si_value);
-        payload.status = Status.Pending;
-        await redisClient.set(si_key, storePayloadToJson(payload));
-        return si_key;
-      } else {
-        metrics.incAlreadyExec();
-        logger.debug("dropping request [" + si_key + "] as already processed");
-      }
-    } else {
-      logger.error("[" + workerInfo.index + "] No si_keyval returned!");
-    }
-  }
-  await redisClient.quit();
-}
-
-//One worker should be spawned for each chainId+privateKey combo.
-async function spawnWorkerThread(workerInfo: WorkerInfo) {
-  //TODO add logging, and actually implement the functions.
+async function spawnAuditorThread(workerInfo: WorkerInfo) {
   logger.info(
-    "Spinning up worker[" +
+    "Spinning up auditor thread[" +
       workerInfo.index +
       "] to handle targetChainId " +
       workerInfo.targetChainId
   );
 
-  while (true) {
-    //This will read the INCOMING table for items which are ready to be worked. It will then move them to the WORKING table and return their identifier.
-    try {
-      const redis_si_key = await findWorkableItem(workerInfo);
-      if (redis_si_key) {
-        //This will attempt the relay and either move the transaction to PENDING, increment its failure count, or discard it if it
-        //exceeds max retries;
-        await await processRequest(
-          workerInfo.index,
-          redis_si_key,
-          workerInfo.walletPrivateKey
-        );
-      }
-    } catch (e) {
-      logger.error("findWorkableItem failed: " + e);
+  //At present, due to the try catch inside the while loop, this thread should never crash.
+  const auditorPromise = doAuditorThread(workerInfo).catch(
+    async (error: Error) => {
+      logger.error(
+        "Fatal crash on auditor thread: index " +
+          workerInfo.index +
+          " chainId " +
+          workerInfo.targetChainId
+      );
+      logger.error("error message: " + error.message);
+      logger.error("error trace: " + error.stack);
+      await sleep(AUDITOR_THREAD_RESTART_MS);
+      spawnAuditorThread(workerInfo);
     }
-    await sleep(100);
-  }
+  );
+
+  return auditorPromise;
 }
 
 //One auditor thread should be spawned per worker. This is perhaps overkill, but auditors
 //should not be allowed to block workers, or other auditors.
-async function spawnAuditorThread(workerInfo: WorkerInfo) {
-  logger.info("Spinning up audit worker...");
+async function doAuditorThread(workerInfo: WorkerInfo) {
   while (true) {
     try {
       let redisClient: any = null;
@@ -238,7 +135,7 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
         redisClient = await connectToRedis();
         if (!redisClient) {
           logger.error("audit worker failed to connect to redis!");
-          await sleep(5000);
+          await sleep(REDIS_RETRY_MS);
         }
       }
       await redisClient.select(RedisTables.WORKING);
@@ -338,7 +235,7 @@ async function spawnAuditorThread(workerInfo: WorkerInfo) {
       }
       redisClient.quit();
       // metrics.setDemoWalletBalance(now.getUTCSeconds());
-      await sleep(5000);
+      await sleep(AUDIT_INTERVAL_MS);
     } catch (e) {
       logger.error("spawnAuditorThread: caught exception: " + e);
     }
@@ -370,95 +267,107 @@ async function processRequest(
   key: string,
   myPrivateKey: any
 ) {
-  logger.debug("[" + myWorkerIdx + "] Processing request [" + key + "]...");
-  // Get the entry from the working store
-  const rClient = await connectToRedis();
-  if (!rClient) {
-    logger.error(
-      "[" + myWorkerIdx + "] failed to connect to Redis in processRequest"
-    );
-    return;
-  }
-  await rClient.select(RedisTables.WORKING);
-  let value: string | null = await rClient.get(key);
-  if (!value) {
-    logger.error(
-      "[" + myWorkerIdx + "] processRequest could not find key [" + key + "]"
-    );
-    return;
-  }
-  let payload: StorePayload = storePayloadFromJson(value);
-  if (payload.status !== Status.Pending) {
-    logger.info(
-      "[" + myWorkerIdx + "] This key [" + key + "] has already been processed."
-    );
-    return;
-  }
-  // Actually do the processing here and update status and time field
-  let relayResult: RelayResult;
   try {
-    logger.info(
-      "[" +
-        myWorkerIdx +
-        "] processRequest() - Calling with vaa_bytes [" +
-        payload.vaa_bytes +
-        "]"
-    );
-    relayResult = await relay(payload.vaa_bytes, false, myPrivateKey);
-    logger.info(
-      "[" + myWorkerIdx + "] processRequest() - relay returned: %o",
-      relayResult.status
-    );
-  } catch (e: any) {
-    logger.error(
-      "[" +
-        myWorkerIdx +
-        "] processRequest() - failed to relay transfer vaa: %o",
-      e
-    );
-
-    relayResult = {
-      status: Status.Error,
-      result: "Failure",
-    };
-    if (e && e.message) {
-      relayResult.result = e.message;
+    logger.debug("[" + myWorkerIdx + "] Processing request [" + key + "]...");
+    // Get the entry from the working store
+    const rClient = await connectToRedis();
+    if (!rClient) {
+      logger.error(
+        "[" + myWorkerIdx + "] failed to connect to Redis in processRequest"
+      );
+      return;
     }
-  }
-
-  const MAX_RETRIES = 10;
-  let retry: boolean = false;
-  if (relayResult.status === Status.Completed) {
-    metrics.incSuccesses();
-  } else {
-    metrics.incFailures();
-    if (payload.retries >= MAX_RETRIES) {
-      relayResult.status = Status.FatalError;
+    await rClient.select(RedisTables.WORKING);
+    let value: string | null = await rClient.get(key);
+    if (!value) {
+      logger.error(
+        "[" + myWorkerIdx + "] processRequest could not find key [" + key + "]"
+      );
+      return;
     }
-    if (relayResult.status === Status.FatalError) {
-      // Invoke fatal error logic here!
-      payload.retries = MAX_RETRIES;
+    let payload: StorePayload = storePayloadFromJson(value);
+    if (payload.status !== Status.Pending) {
+      logger.info(
+        "[" +
+          myWorkerIdx +
+          "] This key [" +
+          key +
+          "] has already been processed."
+      );
+      return;
+    }
+    // Actually do the processing here and update status and time field
+    let relayResult: RelayResult;
+    try {
+      logger.info(
+        "[" +
+          myWorkerIdx +
+          "] processRequest() - Calling with vaa_bytes [" +
+          payload.vaa_bytes +
+          "]"
+      );
+      relayResult = await relay(payload.vaa_bytes, false, myPrivateKey);
+      logger.info(
+        "[" + myWorkerIdx + "] processRequest() - relay returned: %o",
+        relayResult.status
+      );
+    } catch (e: any) {
+      logger.error(
+        "[" +
+          myWorkerIdx +
+          "] processRequest() - failed to relay transfer vaa: %o",
+        e
+      );
+
+      relayResult = {
+        status: Status.Error,
+        result: "Failure",
+      };
+      if (e && e.message) {
+        relayResult.result = e.message;
+      }
+    }
+
+    const MAX_RETRIES = 10;
+    let retry: boolean = false;
+    if (relayResult.status === Status.Completed) {
+      metrics.incSuccesses();
     } else {
-      // Invoke retry logic here!
-      retry = true;
+      metrics.incFailures();
+      if (payload.retries >= MAX_RETRIES) {
+        relayResult.status = Status.FatalError;
+      }
+      if (relayResult.status === Status.FatalError) {
+        // Invoke fatal error logic here!
+        payload.retries = MAX_RETRIES;
+      } else {
+        // Invoke retry logic here!
+        retry = true;
+      }
     }
-  }
 
-  // Put result back into store
-  payload.status = relayResult.status;
-  payload.timestamp = new Date().toString();
-  payload.retries++;
-  value = storePayloadToJson(payload);
-  if (!retry || payload.retries > MAX_RETRIES) {
-    await rClient.set(key, value);
-  } else {
-    // Remove from the working table
-    await rClient.del(key);
-    // Put this back into the incoming table
-    await rClient.select(RedisTables.INCOMING);
-    await rClient.set(key, value);
+    // Put result back into store
+    payload.status = relayResult.status;
+    payload.timestamp = new Date().toString();
+    payload.retries++;
+    value = storePayloadToJson(payload);
+    if (!retry || payload.retries > MAX_RETRIES) {
+      await rClient.set(key, value);
+    } else {
+      // Remove from the working table
+      await rClient.del(key);
+      // Put this back into the incoming table
+      await rClient.select(RedisTables.INCOMING);
+      await rClient.set(key, value);
+    }
+    await rClient.quit();
+  } catch (e: any) {
+    logger.error("Unexpected error in processRequest: " + e.message);
+    logger.error("request key: " + key);
+    logger.error("worker index: " + myWorkerIdx);
+    logger.error("Exception trace: " + e.stack);
+    return [];
   }
-  await rClient.quit();
 }
 
 // Redis does not guarantee ordering.  Therefore, it is possible that if workItems are
@@ -467,66 +376,73 @@ async function processRequest(
 async function findWorkableItems(
   workerInfo: WorkerInfo
 ): Promise<WorkableItem[]> {
-  let workableItems: WorkableItem[] = [];
-  const redisClient = await connectToRedis();
-  if (!redisClient) {
-    logger.error(
-      "Worker [" +
-        workerInfo.index +
-        "] Failed to connect to redis inside findWorkableItems()!"
-    );
-    return workableItems;
-  }
-  await redisClient.select(RedisTables.INCOMING);
-  for await (const si_key of redisClient.scanIterator()) {
-    const si_value = await redisClient.get(si_key);
-    if (si_value) {
-      let storePayload: StorePayload = storePayloadFromJson(si_value);
-      // Check to see if this worker should handle this VAA
-      if (workerInfo.targetChainId !== 0) {
-        const { parse_vaa } = await importCoreWasm();
-        const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
-        const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
-        const transferPayload = parseTransferPayload(payloadBuffer);
-        const tgtChainId = transferPayload.targetChain;
-        if (tgtChainId !== workerInfo.targetChainId) {
-          // logger.debug(
-          //   "Skipping mismatched chainId.  Received: " +
-          //     tgtChainId +
-          //     ", want: " +
-          //     workerInfo.targetChainId
-          // );
-          continue;
-        }
-      }
-
-      // Check to see if this is a retry and if it is time to retry
-      if (storePayload.retries > 0) {
-        const BACKOFF_TIME = 10000; // 10 seconds in milliseconds
-        const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
-        // calculate retry time
-        const now: Date = new Date();
-        const old: Date = new Date(storePayload.timestamp);
-        const timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
-        const waitTime: number = Math.min(
-          BACKOFF_TIME ** storePayload.retries,
-          MAX_BACKOFF_TIME
-        );
-        if (timeDelta < waitTime) {
-          // Not enough time has passed
-          continue;
-        }
-      }
-      workableItems.push({ key: si_key, value: si_value });
+  try {
+    let workableItems: WorkableItem[] = [];
+    const redisClient = await connectToRedis();
+    if (!redisClient) {
+      logger.error(
+        "Worker [" +
+          workerInfo.index +
+          "] Failed to connect to redis inside findWorkableItems()!"
+      );
+      return workableItems;
     }
+    await redisClient.select(RedisTables.INCOMING);
+    for await (const si_key of redisClient.scanIterator()) {
+      const si_value = await redisClient.get(si_key);
+      if (si_value) {
+        let storePayload: StorePayload = storePayloadFromJson(si_value);
+        // Check to see if this worker should handle this VAA
+        if (workerInfo.targetChainId !== 0) {
+          const { parse_vaa } = await importCoreWasm();
+          const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
+          const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
+          const transferPayload = parseTransferPayload(payloadBuffer);
+          const tgtChainId = transferPayload.targetChain;
+          if (tgtChainId !== workerInfo.targetChainId) {
+            // logger.debug(
+            //   "Skipping mismatched chainId.  Received: " +
+            //     tgtChainId +
+            //     ", want: " +
+            //     workerInfo.targetChainId
+            // );
+            continue;
+          }
+        }
+
+        // Check to see if this is a retry and if it is time to retry
+        if (storePayload.retries > 0) {
+          const BACKOFF_TIME = 10000; // 10 seconds in milliseconds
+          const MAX_BACKOFF_TIME = 86400000; // 24 hours in milliseconds
+          // calculate retry time
+          const now: Date = new Date();
+          const old: Date = new Date(storePayload.timestamp);
+          const timeDelta: number = now.getTime() - old.getTime(); // delta is in mS
+          const waitTime: number = Math.min(
+            BACKOFF_TIME ** storePayload.retries,
+            MAX_BACKOFF_TIME
+          );
+          if (timeDelta < waitTime) {
+            // Not enough time has passed
+            continue;
+          }
+        }
+        workableItems.push({ key: si_key, value: si_value });
+      }
+    }
+    redisClient.quit();
+    return workableItems;
+  } catch (e: any) {
+    logger.error(
+      "Recoverable exception scanning REDIS for workable items: " + e.message
+    );
+    logger.error("Exception trace: " + e.stack);
+    return [];
   }
-  redisClient.quit();
-  return workableItems;
 }
 
 //One worker should be spawned for each chainId+privateKey combo.
-async function spawnWorkerThreadBulk(workerInfo: WorkerInfo) {
-  //TODO add logging, and actually implement the functions.
+async function spawnWorkerThread(workerInfo: WorkerInfo) {
   logger.info(
     "Spinning up worker[" +
       workerInfo.index +
@@ -534,35 +450,45 @@ async function spawnWorkerThreadBulk(workerInfo: WorkerInfo) {
       workerInfo.targetChainId
   );
 
+  const workerPromise = doWorkerThread(workerInfo).catch(async (error) => {
+    logger.error(
+      "Fatal crash on worker thread: index " +
+        workerInfo.index +
+        " chainId " +
+        workerInfo.targetChainId
+    );
+    logger.error("error message: " + error.message);
+    logger.error("error trace: " + error.stack);
+    await sleep(WORKER_THREAD_RESTART_MS);
+    spawnWorkerThread(workerInfo);
+  });
+
+  return workerPromise;
+}
+
+async function doWorkerThread(workerInfo: WorkerInfo) {
   while (true) {
-    // This will read the INCOMING table for items which are ready to be worked.
-    // The INCOMING table is the only table that has work to do
-    try {
-      const workableItems: WorkableItem[] = await findWorkableItems(workerInfo);
-      // logger.debug( "[" + workerInfo.index + "] received " + workableItems.length + " workable items.");
-      let i: number = 0;
-      for (i = 0; i < workableItems.length; i++) {
-        const workItem: WorkableItem = workableItems[i];
-        if (workItem) {
-          // logger.debug("attempting to move key: " + workItem.key);
-          //This will attempt to move the workable item to the WORKING table
-          if (await moveToWorking(workerInfo, workItem)) {
-            // logger.debug("Moved key: " + workItem.key + " to WORKING table.");
-            await processRequest(
-              workerInfo.index,
-              workItem.key,
-              workerInfo.walletPrivateKey
-            );
-            // logger.debug("Finished processing key: " + workItem.key);
-          } else {
-            logger.error("Cannot move work item from INCOMING to WORKING.");
-          }
+    const workableItems: WorkableItem[] = await findWorkableItems(workerInfo);
+    // logger.debug( "[" + workerInfo.index + "] received " + workableItems.length + " workable items.");
+    let i: number = 0;
+    for (i = 0; i < workableItems.length; i++) {
+      const workItem: WorkableItem = workableItems[i];
+      if (workItem) {
+        // logger.debug("attempting to move key: " + workItem.key);
+        //This will attempt to move the workable item to the WORKING table
+        if (await moveToWorking(workerInfo, workItem)) {
+          // logger.debug("Moved key: " + workItem.key + " to WORKING table.");
+          await processRequest(
+            workerInfo.index,
+            workItem.key,
+            workerInfo.walletPrivateKey
+          );
+          // logger.debug("Finished processing key: " + workItem.key);
+        } else {
+          logger.error("Cannot move work item from INCOMING to WORKING.");
         }
       }
-    } catch (e) {
-      logger.error("spawnWorkerThread failed processing work items: " + e);
     }
-    await sleep(500);
   }
 }
 
@@ -570,40 +496,48 @@ async function moveToWorking(
   workerInfo: WorkerInfo,
   workItem: WorkableItem
 ): Promise<boolean> {
-  const redisClient = await connectToRedis();
-  if (!redisClient) {
-    logger.error("moveToPending() - failed to connect to Redis.");
-    return false;
-  }
-  // Move this entry from incoming store to working store
-  await redisClient.select(RedisTables.INCOMING);
-  if ((await redisClient.del(workItem.key)) === 0) {
-    logger.info(
-      "[" +
-        workerInfo.index +
-        "] The key [" +
-        workItem.key +
-        "] no longer exists in INCOMING"
-    );
-    await redisClient.quit();
-    return false;
-  }
-  await redisClient.select(RedisTables.WORKING);
-  // If this VAA is already in the working store, then no need to add it again.
-  // This handles the case of duplicate VAAs from multiple guardians
-  const checkVal = await redisClient.get(workItem.key);
-  if (!checkVal) {
-    let payload: StorePayload = storePayloadFromJson(workItem.value);
-    payload.status = Status.Pending;
-    await redisClient.set(workItem.key, storePayloadToJson(payload));
-    await redisClient.quit();
-    return true;
-  } else {
-    metrics.incAlreadyExec();
-    logger.debug(
-      "dropping request [" + workItem.key + "] as already processed"
-    );
-    await redisClient.quit();
+  try {
+    const redisClient = await connectToRedis();
+    if (!redisClient) {
+      logger.error("moveToPending() - failed to connect to Redis.");
+      return false;
+    }
+    // Move this entry from incoming store to working store
+    await redisClient.select(RedisTables.INCOMING);
+    if ((await redisClient.del(workItem.key)) === 0) {
+      logger.info(
+        "[" +
+          workerInfo.index +
+          "] The key [" +
+          workItem.key +
+          "] no longer exists in INCOMING"
+      );
+      await redisClient.quit();
+      return false;
+    }
+    await redisClient.select(RedisTables.WORKING);
+    // If this VAA is already in the working store, then no need to add it again.
+    // This handles the case of duplicate VAAs from multiple guardians
+    const checkVal = await redisClient.get(workItem.key);
+    if (!checkVal) {
+      let payload: StorePayload = storePayloadFromJson(workItem.value);
+      payload.status = Status.Pending;
+      await redisClient.set(workItem.key, storePayloadToJson(payload));
+      await redisClient.quit();
+      return true;
+    } else {
+      metrics.incAlreadyExec();
+      logger.debug(
+        "dropping request [" + workItem.key + "] as already processed"
+      );
+      await redisClient.quit();
+      return false;
+    }
+  } catch (e: any) {
+    logger.error("Recoverable exception moving item to working: " + e.message);
+    logger.error("Problem item: " + workItem.key);
+    logger.error("Problem value: " + workItem.value);
+    logger.error("Exception trace: " + e.stack);
     return false;
   }
 }
