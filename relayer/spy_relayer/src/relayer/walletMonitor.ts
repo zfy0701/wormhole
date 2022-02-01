@@ -9,13 +9,10 @@ import {
   nativeToHexString,
   WSOL_DECIMALS,
 } from "@certusone/wormhole-sdk";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  addressFromPublicKey,
-  LCDClient,
-  MnemonicKey,
-} from "@terra-money/terra.js";
-import { ethers, Signer, Wallet } from "ethers";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Connection, Keypair } from "@solana/web3.js";
+import { LCDClient, MnemonicKey } from "@terra-money/terra.js";
+import { ethers, Signer } from "ethers";
 import { formatUnits } from "ethers/lib/utils";
 import {
   ChainConfigInfo,
@@ -24,13 +21,10 @@ import {
   SupportedToken,
 } from "../configureEnv";
 import { getLogger } from "../helpers/logHelper";
-import { getMultipleAccountsRPC } from "../utils/solana";
-import { getEthereumToken } from "../utils/ethereum";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { sleep } from "../helpers/utils";
-import { Provider } from "@ethersproject/abstract-provider";
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { PromHelper } from "../helpers/promHelpers";
+import { getMetaplexData, sleep } from "../helpers/utils";
+import { getEthereumToken } from "../utils/ethereum";
+import { getMultipleAccountsRPC } from "../utils/solana";
 
 let env: RelayerEnvironment;
 const logger = getLogger();
@@ -93,6 +87,10 @@ async function pullBalances(): Promise<WalletBalance[]> {
           balances = balances.concat(
             await pullTerraNativeBalance(chainInfo, privateKey)
           );
+          logger.info("Attempting to pull TERRA non-native balance...");
+          balances = balances.concat(
+            await pullAllTerraTokens(env.supportedTokens, chainInfo)
+          );
         } else {
           logger.error(
             "Invalid chain ID in wallet monitor " + chainInfo.chainId
@@ -102,8 +100,13 @@ async function pullBalances(): Promise<WalletBalance[]> {
 
       for (const solanaPrivateKey of chainInfo.solanaPrivateKey || []) {
         if (chainInfo.chainId === CHAIN_ID_SOLANA) {
+          logger.info("pullBalances() - calling pullSolanaNativeBalance...");
           balances.push(
             await pullSolanaNativeBalance(chainInfo, solanaPrivateKey)
+          );
+          logger.info("pullBalances() - calling pullSolanaTokanBalances...");
+          balances = balances.concat(
+            await pullSolanaTokenBalances(chainInfo, solanaPrivateKey)
           );
         }
       }
@@ -120,37 +123,30 @@ async function pullEVMBalance(
   privateKey: string,
   tokenAddress: string
 ): Promise<WalletBalance> {
+  if (parseInt(tokenAddress) === 0) {
+    throw new Error("tokenAddress is 0");
+  }
   let provider = new ethers.providers.WebSocketProvider(chainInfo.nodeUrl);
   const signer: Signer = new ethers.Wallet(privateKey, provider);
 
-  try {
-    logger.debug("About to get token for address: " + tokenAddress);
-    const token = await getEthereumToken(tokenAddress, provider);
-    // if (!token.deployTransaction) {
-    //   logger.error("deployTransaction DNE.");
-    // }
-    // logger.debug("About to deployTransaction.wait...");
-    // await token.deployTransaction.wait();
-    // logger.debug("About to get balance...");
-    const balance = await token.balanceOf(await signer.getAddress());
-    // logger.debug("About to get symbol...");
-    const symbol = await token.symbol();
-    // logger.debug("About to get decimals...");
-    const decimals = await token.decimals();
-    //const name = await token.name();
-    const balanceFormatted = formatUnits(balance, decimals);
+  logger.debug("About to get token for address: " + tokenAddress);
+  const token = await getEthereumToken(tokenAddress, provider);
+  // logger.debug("About to get decimals...");
+  const decimals = await token.decimals();
+  // logger.debug("About to get balance...");
+  const balance = await token.balanceOf(await signer.getAddress());
+  // logger.debug("About to get symbol...");
+  const symbol = await token.symbol();
+  //const name = await token.name();
+  const balanceFormatted = formatUnits(balance, decimals);
 
-    return {
-      chainId: chainInfo.chainId,
-      balanceAbs: balance.toString(),
-      balanceFormatted: balanceFormatted,
-      currencyName: symbol,
-      currencyAddressNative: tokenAddress,
-    };
-  } catch (e) {
-    logger.error("pullEVMBalance threw: " + e + "; chainInfo: %o", chainInfo);
-    throw e;
-  }
+  return {
+    chainId: chainInfo.chainId,
+    balanceAbs: balance.toString(),
+    balanceFormatted: balanceFormatted,
+    currencyName: symbol,
+    currencyAddressNative: tokenAddress,
+  };
 }
 
 async function pullTerraBalance(
@@ -210,21 +206,62 @@ async function pullSolanaTokenBalances(
   const connection = new Connection(chainInfo.nodeUrl);
   const output: WalletBalance[] = [];
 
-  const allAccounts = await connection.getParsedTokenAccountsByOwner(
-    keyPair.publicKey,
-    { programId: TOKEN_PROGRAM_ID },
-    "confirmed"
-  );
-  allAccounts.value.forEach((account) => {
-    output.push({
-      chainId: CHAIN_ID_SOLANA,
-      balanceAbs: account.account.data.parsed?.info?.tokenAmount?.amount,
-      balanceFormatted:
-        account.account.data.parsed?.info?.tokenAmount?.uiAmount,
-      currencyName: "Metadata not pulled",
-      currencyAddressNative: account.account.data.parsed?.info?.mint,
+  try {
+    const allAccounts = await connection.getParsedTokenAccountsByOwner(
+      keyPair.publicKey,
+      { programId: TOKEN_PROGRAM_ID },
+      "confirmed"
+    );
+    let mintAddresses: string[] = [];
+    allAccounts.value.forEach((account) => {
+      mintAddresses.push(account.account.data.parsed?.info?.mint);
     });
-  });
+    const mdArray = await getMetaplexData(mintAddresses, chainInfo);
+    logger.debug(
+      "pullSolanaTokenBalances() - mdArray.size = " + mdArray.length
+    );
+    mdArray.forEach((el) => {
+      if (el && el.data && el?.data.symbol) {
+        logger.debug(
+          "pullSolanaTokenBalances() - el.data.symbol: " + el.data.symbol
+        );
+      }
+    });
+
+    for (const account of allAccounts.value) {
+      let mintAddress: string[] = [];
+      mintAddress.push(account.account.data.parsed?.info?.mint);
+      const mdArray = await getMetaplexData(mintAddress, chainInfo);
+      logger.debug(
+        "pullSolanaTokenBalances() - mdArray.size = " + mdArray.length
+      );
+      let cName: string = "";
+      if (mdArray && mdArray[0] && mdArray[0].data && mdArray[0].data.symbol) {
+        const encoded = mdArray[0].data.symbol;
+        cName = encodeURIComponent(encoded);
+        cName = cName.replace(/%/g, "_");
+        logger.debug(
+          "pullSolanaTokenBalances() - encoded: " +
+            encoded +
+            ", cName: " +
+            cName
+        );
+      }
+
+      logger.debug("pullSolanaTokenBalances() - pushing output...");
+      output.push({
+        chainId: CHAIN_ID_SOLANA,
+        balanceAbs: account.account.data.parsed?.info?.tokenAmount?.amount,
+        balanceFormatted:
+          account.account.data.parsed?.info?.tokenAmount?.uiAmount,
+        currencyName: cName,
+        currencyAddressNative: account.account.data.parsed?.info?.mint,
+      });
+    }
+  } catch (e) {
+    logger.error("pullSolanaTokenBalances() - ", e);
+  }
+  logger.debug("pullSolanaTokenBalances() - output: %o", output);
 
   return output;
 }
@@ -304,7 +341,7 @@ async function pullTerraNativeBalance(
     const balancePairs = coins.map(({ amount, denom }) => [denom, amount]);
     const balance = balancePairs.reduce((obj, current) => {
       obj[current[0].toString()] = current[1].toString();
-      logger.debug("Terra coins thingy: " + current[0] + ", => " + current[1]);
+      // logger.debug("Terra coins thingy: " + current[0] + ", => " + current[1]);
       // logger.debug("TerraBalance returning reduced obj: %o", obj);
       return obj;
     }, {} as TerraNativeBalances);
@@ -391,7 +428,7 @@ async function calcForeignAddressesEVM(
     chainConfigInfo.nodeUrl
   );
 
-  logger.debug("calcForeignAddressesEVM() - entered.");
+  // logger.debug("calcForeignAddressesEVM() - entered.");
   let output: string[] = [];
   for (const supportedToken of supportedTokens) {
     const hexAddress = nativeToHexString(
@@ -496,7 +533,7 @@ async function pullAllEVMTokens(
     supportedTokens,
     chainConfig
   );
-  logger.debug("foreignAddress: %o", foreignAddresses);
+  // logger.debug("foreignAddress: %o", foreignAddresses);
   const output: WalletBalance[] = [];
   if (!chainConfig.walletPrivateKey) {
     return output;
@@ -525,6 +562,7 @@ async function pullAllTerraTokens(
     supportedTokens,
     chainConfig
   );
+  logger.debug("pullAllTerraTokens() - foreignAddresses: %o", foreignAddresses);
   const output: WalletBalance[] = [];
   if (!chainConfig.walletPrivateKey) {
     return output;
@@ -537,6 +575,7 @@ async function pullAllTerraTokens(
       }
     }
   }
+  logger.debug("pullAllTerraTokens() - returning %o", output);
 
   return output;
 }

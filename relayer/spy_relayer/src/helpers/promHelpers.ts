@@ -112,30 +112,39 @@ export class PromHelper {
     this._walletReg.clear();
     this.walletMetrics = [];
     for (const bal of balances) {
-      if (bal.currencyName.length === 0) {
-        bal.currencyName = "UNK";
+      try {
+        if (bal.currencyName.length === 0) {
+          bal.currencyName = "UNK";
+        }
+        logger.debug(
+          "handleWalletBalances: " +
+            bal.currencyName +
+            " => " +
+            bal.balanceFormatted
+        );
+        let walletGauge = new client.Gauge({
+          name: bal.currencyName,
+          help: " balance",
+          // labelNames: ["timestamp"],
+          registers: [this._walletReg],
+        });
+        let formBal: number;
+        if (!bal.balanceFormatted) {
+          formBal = 0;
+        } else {
+          formBal = parseFloat(bal.balanceFormatted);
+        }
+        walletGauge.set(formBal);
+        this._walletReg.registerMetric(walletGauge);
+        this.walletMetrics.push(walletGauge);
+      } catch (e: any) {
+        // logger.error("handleWalletBalances() - caught error: %o", e);
+        if (e.message) {
+          logger.error("handleWalletBalances() - caught error: " + e.message);
+        } else {
+          logger.error("handleWalletBalances() - caught error ");
+        }
       }
-      logger.debug(
-        "handleWalletBalances: " +
-          bal.currencyName +
-          " => " +
-          bal.balanceFormatted
-      );
-      let walletGauge = new client.Gauge({
-        name: bal.currencyName,
-        help: "The balance of " + bal.currencyName,
-        // labelNames: ["timestamp"],
-        registers: [this._walletReg],
-      });
-      let formBal: number;
-      if (!bal.balanceFormatted) {
-        formBal = 0;
-      } else {
-        formBal = parseFloat(bal.balanceFormatted);
-      }
-      walletGauge.set(formBal);
-      this._walletReg.registerMetric(walletGauge);
-      this.walletMetrics.push(walletGauge);
     }
   }
 }
