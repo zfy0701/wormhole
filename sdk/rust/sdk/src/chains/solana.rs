@@ -111,7 +111,7 @@ pub fn post_message(
             config.fee
         ),
         accounts,
-        &[&emitter_seeds, seeds.unwrap_or(&[])],
+        &[],
     )?;
 
     // Invoke the Wormhole post_message endpoint to create an on-chain message.
