@@ -70,6 +70,10 @@ pub fn verify_signatures(
     accs: &mut VerifySignatures,
     data: VerifySignaturesData,
 ) -> Result<()> {
+    if *accs.instruction_acc.key != solana_program::sysvar::instructions::id() {
+        return Err(SolitaireError::InvalidSysvar(*accs.instruction_acc.key));
+    }
+
     accs.guardian_set
         .verify_derivation(ctx.program_id, &(&*accs).into())?;
 
