@@ -8,6 +8,7 @@ use std::convert::TryFrom; // Remove in 2021
 #[repr(u16)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Chain {
+    // Mainnet IDs
     All      = 0,
     Solana   = 1,
     Ethereum = 2,
@@ -16,12 +17,16 @@ pub enum Chain {
     Polygon  = 5,
     AVAX     = 6,
     Oasis    = 7,
+
+    // Testnet IDs
+    Ropsten  = 10001,
 }
 
 impl TryFrom<u16> for Chain {
     type Error = ();
     fn try_from(other: u16) -> Result<Chain, Self::Error> {
         match other {
+            // Mainnet IDs
             0 => Ok(Chain::All),
             1 => Ok(Chain::Solana),
             2 => Ok(Chain::Ethereum),
@@ -30,6 +35,11 @@ impl TryFrom<u16> for Chain {
             5 => Ok(Chain::Polygon),
             6 => Ok(Chain::AVAX),
             7 => Ok(Chain::Oasis),
+
+            // Testnet IDs
+            10001 => Ok(Chain::Ropsten),
+
+            // Unsupported IDs result in error.
             _ => Err(()),
         }
     }
