@@ -7,12 +7,18 @@ pub struct Guardian {
     pub rpc:  Option<&'static str>,
 }
 
-pub static GUARDIANS: Map<&'static str, Guardian> = phf_map! {
-    "befa429d57cd18b7f8a4d91a2da9ab4af05d0fbe" => Guardian {
-        name: "Devnet",
-        rpc:  None,
-    },
+/// Mapping of network name to guardian details. Static map means this is exhaustively checked at
+/// compile time when used through the codebase.
+pub type GuardianMap = Map<&'static str, Guardian>;
 
+/// Network Groupings.
+pub static NETWORKS: Map<&'static str, &'static GuardianMap> = phf_map! {
+    "mainnet" => &MAINNET,
+    "testnet" => &TESTNET,
+};
+
+/// Mainnet Guardian Definitions
+pub static MAINNET: GuardianMap = phf_map! {
     "000ac0076727b35fbea2dac28fee5ccb0fea768e" => Guardian {
         name: "Staking Fund",
         rpc:  Some("https://wormhole-v2-mainnet-api.staking.fund"),
@@ -104,10 +110,18 @@ pub static GUARDIANS: Map<&'static str, Guardian> = phf_map! {
     },
 };
 
+/// Testnet Guardian Definitions
+pub static TESTNET: Map<&'static str, Guardian> = phf_map! {
+    "befa429d57cd18b7f8a4d91a2da9ab4af05d0fbe" => Guardian {
+        name: "Devnet",
+        rpc:  None,
+    },
+};
+
 /// Choose a random RPC node for VAA querying. Randomizing to avoid reliance on any particular RPC
 /// provider.
-pub fn random_rpc() -> &'static str {
-    GUARDIANS
+pub fn random_rpc(network: GuardianMap) -> &'static str {
+    network
         .values()
         .filter_map(|v| v.rpc)
         .collect::<Vec<&'static str>>()

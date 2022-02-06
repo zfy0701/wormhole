@@ -1,3 +1,5 @@
+use crate::guardians;
+
 use colored::Colorize;
 use secp256k1::recovery::{
     RecoverableSignature,
@@ -123,7 +125,7 @@ fn render_vaa(parsed: &VAA, decode: &[u8], hash: &[u8]) {
                 accum,
                 format!("{:04}", signature[0]).blue(),
                 &encoded_key[..6],
-                signer(encoded_key).green(),
+                signer_to_name(encoded_key).green(),
             )
         });
 
@@ -134,8 +136,8 @@ fn render_vaa(parsed: &VAA, decode: &[u8], hash: &[u8]) {
     print_row(&mut buffer, 1, "Siglen");
 
     // Render Signatures with Public Keys
-    for (i, signature) in parsed.signatures.iter().enumerate() {
-        print_row(&mut buffer, 66, &format!("Sig {}", parsed.signatures[i][0]));
+    for signature in &parsed.signatures {
+        print_row(&mut buffer, 66, &format!("Sig {}", signature[0]));
     }
 
     print_row(&mut buffer, 4, "Timestamp");
@@ -150,34 +152,16 @@ fn render_vaa(parsed: &VAA, decode: &[u8], hash: &[u8]) {
 }
 
 /// Mapping of known Guardian keys to their public node name.
-fn signer(key: &str) -> &'static str {
-    match key {
-        // Devnet Guardians
-        "befa429d57cd18b7f8a4d91a2da9ab4af05d0fbe" => "Devnet",
-
-        // Production Guardians
-        "000ac0076727b35fbea2dac28fee5ccb0fea768e" => "Staking Fund",
-        "107a0086b32d7a0977926a205131d8731d39cbeb" => "ChainodeTech",
-        "114de8460193bdf3a2fcf81f86a09765f4762fd1" => "Figment",
-        "11b39756c042441be6d8650b69b54ebe715e2343" => "HashQuark",
-        "178e21ad2e77ae06711549cfbb1f9c7a9d8096e8" => "syncnode",
-        "54ce5b4d348fb74b958e8966e2ec3dbd4958a7cd" => "ChainLayer",
-        "58cc3ae5c097b213ce3c81979e1b9f9570746aa5" => "Certus One",
-        "5e1487f35515d02a92753504a8d75471b9f49edb" => "Triton",
-        "6fbebc898f403e4773e95feb15e80c9a99c8348d" => "Staking Facilities",
-        "71aa1be1d36cafe3867910f99c09e347899c19c3" => "Everstake",
-        "74a3bf913953d695260d88bc1aa25a4eee363ef0" => "Forbole",
-        "8c82b2fd82faed2711d59af0f2499d16e726f6b2" => "Inotel",
-        "af45ced136b9d9e24903464ae889f5c8a723fc14" => "MoonletWallet",
-        "d2cc37a4dc036a8d232b48f62cdd4731412f4890" => "01node",
-        "da798f6896a3331f64b48c12d1d57fd9cbe70811" => "MCF-V2-MAINNET",
-        "eb5f7389fa26941519f0863349c223b73a6ddee7" => "DokiaCapital",
-        "f93124b7c738843cbb89e864c862c38cddcccf95" => "P2P Validator",
-        "ff6cb952589bde862c25ef4392132fb9d4a42157" => "Staked",
-
-        // Unknown Guardian
-        _ => { "Unknown Guardian" },
-    }
+fn signer_to_name(key: &str) -> &'static str {
+    // Search for Guardian Key and return Name
+    guardians::NETWORKS
+        .values()
+        .flat_map(|network| network.entries().map(|(key, guardian)| (key, guardian.name)))
+        .collect::<Vec<_>>()
+        .iter()
+        .find(|(k, _)| key == **k)
+        .unwrap_or(&(&"", "Unknown Guardian"))
+        .1
 }
 
 /// Attempts to decode the VAA Payload in any of the known formats, if none just column format the
@@ -272,32 +256,46 @@ fn render_payload(payload: &[u8]) {
             print_row(&mut buffer, 32, "Address");
         }
 
+        // Core: GuardianSetChange
         payload if let Ok((_, r)) = core::GovernanceGuardianSetChange::from_bytes(payload, None) => {
             println!("Core GuardianSetChange, {} Bytes\n", payload.len());
             let mut buffer: (usize, &[u8]) = (0, &payload);
             print_row(&mut buffer, 32, "Module");
-            print_row(&mut buffer, 1, "Action");
+            print_row(&mut buffer, 1, "Type");
             print_row(&mut buffer, 2, "Chain");
             print_row(&mut buffer, 4, "NewGuardianSetIndex");
-            let len = buffer.1[0];
+            let guardian_set_len = buffer.1[0];
             print_row(&mut buffer, 1, "NewGuardianSetLen");
-            let mut i = 0;
-            while i < len {
-                  print_row(&mut buffer, 20, "key");
-                  i = i + 1;
-            }           
+            for i in 0 .. guardian_set_len {
+                  print_row(&mut buffer, 20, &format!("Key {}", i));
+            }
         }
 
+        // Core: SetMessageFee
         payload if let Ok((_, r)) = core::GovernanceSetMessageFee::from_bytes(payload, None) => {
             println!("Core SetMessageFee, {} Bytes\n", payload.len());
+            let mut buffer: (usize, &[u8]) = (0, &payload);
+            print_row(&mut buffer, 32, "Module");
+            print_row(&mut buffer, 1, "Type");
+            print_row(&mut buffer, 32, "Fee");
         }
 
+        // Core: TransferFees
         payload if let Ok((_, r)) = core::GovernanceTransferFees::from_bytes(payload, None) => {
             println!("Core TransferFees, {} Bytes\n", payload.len());
+            let mut buffer: (usize, &[u8]) = (0, &payload);
+            print_row(&mut buffer, 32, "Module");
+            print_row(&mut buffer, 1, "Action");
+            print_row(&mut buffer, 32, "Amount");
+            print_row(&mut buffer, 32, "To");
         }
 
         _ => { 
-            format!("\n{:x?}", payload); 
+            println!("Unknown Payload, Bytes Only\n");
+            let mut buffer: (usize, &[u8]) = (0, &payload);
+            for chunk in payload.chunks(32) {
+                print_row(&mut buffer, chunk.len(), "Payload");
+            }
         },
     }
 }

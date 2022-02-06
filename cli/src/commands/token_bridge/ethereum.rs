@@ -1,7 +1,9 @@
+use crate::networks;
 use crate::error::{
     CLIError,
     Result,
 };
+
 use secp256k1::SecretKey;
 use std::convert::TryInto;
 use std::path::PathBuf;
@@ -83,8 +85,12 @@ pub enum EthereumCommand {
 }
 
 /// Command handler for all commands in the Ethereum namespace.
-pub async fn process(rpc: &str, network: &str, command: EthereumCommand) {
-    if let Some((_, network)) = crate::networks::NETWORKS.get_entry(network) {
+pub async fn process(network: &str, rpc: &str, chain: &str, command: EthereumCommand) {
+    // Select Wormhole network map.
+    let network_map = &networks::NETWORKS[network];
+
+    // If the requested chain is present in this network map, expose CLI interface.
+    if let Some(network) = network_map.get(chain) {
         match command {
             EthereumCommand::Dump => {
                 if let Err(CLIError(e)) = dump::handle(rpc, network.token_bridge).await {
@@ -165,7 +171,9 @@ pub async fn process(rpc: &str, network: &str, command: EthereumCommand) {
     }
 }
 
-/// Open Web3 RPC connection to an Ethereum contract.
+/// Helper method for creating a Wormhole TokenBridge interface against a Web3 RPC connection, the
+/// ABI is taken from compiling the Ethereum contracts with truffle. BridgeImplementation exposes
+/// all relevant TokenBridge methods.
 async fn open_contract(rpc: &str, addr: &str) -> Result<Contract<web3::transports::Http>> {
     let websocket = web3::transports::Http::new(&rpc).map_err(|e| CLIError(e.to_string()))?;
     let web3 = web3::Web3::new(websocket);

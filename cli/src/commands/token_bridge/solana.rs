@@ -12,6 +12,7 @@ use wormhole_sdk::VAA;
 use wormhole_sdk::DeserializePayload;
 use crate::error::Result;
 use crate::error::CLIError;
+use crate::networks;
 
 #[derive(Debug, StructOpt)]
 pub enum SolanaCommand {
@@ -89,8 +90,8 @@ pub enum SolanaCommand {
 }
 
 /// Command handler for all commands in the Ethereum namespace.
-pub async fn process(rpc: &str, command: SolanaCommand) {
-    if let Some((_, network)) = crate::networks::NETWORKS.get_entry("solana") {
+pub async fn process(network: &str, rpc: &str, command: SolanaCommand) {
+    if let Some((_, network)) = networks::NETWORKS[network].get_entry("solana") {
         match command {
             SolanaCommand::Dump => {
                 if let Err(CLIError(e)) = dump(rpc, network.token_bridge).await {
@@ -100,28 +101,34 @@ pub async fn process(rpc: &str, command: SolanaCommand) {
 
             SolanaCommand::RegisterAsset { vaa, key } => {
                 let vaa = &*hex::decode(vaa).unwrap();
-                if let Err(CLIError(e)) = register_asset(rpc, network.token_bridge, vaa, key).await {
+                if let Err(CLIError(e)) = register_asset(rpc, network.token_bridge, vaa, key).await
+                {
                     println!("{}", e);
                 }
             }
 
             SolanaCommand::RegisterChain { vaa, key } => {
                 let vaa = &*hex::decode(vaa).unwrap();
-                if let Err(CLIError(e)) = register_chain(rpc, network.token_bridge, vaa, key).await {
+                if let Err(CLIError(e)) = register_chain(rpc, network.token_bridge, vaa, key).await
+                {
                     println!("{}", e);
                 }
             }
 
             SolanaCommand::CompleteTransfer { vaa, key, unwrap } => {
                 let vaa = &*hex::decode(vaa).unwrap();
-                if let Err(CLIError(e)) = complete_transfer(rpc, network.token_bridge, vaa, key).await {
+                if let Err(CLIError(e)) =
+                    complete_transfer(rpc, network.token_bridge, vaa, key).await
+                {
                     println!("{}", e);
                 }
             }
 
             SolanaCommand::ContractUpgrade { vaa, key } => {
                 let vaa = &*hex::decode(vaa).unwrap();
-                if let Err(CLIError(e)) = complete_transfer(rpc, network.token_bridge, vaa, key).await {
+                if let Err(CLIError(e)) =
+                    complete_transfer(rpc, network.token_bridge, vaa, key).await
+                {
                     println!("{}", e);
                 }
             }
@@ -155,7 +162,6 @@ pub async fn process(rpc: &str, command: SolanaCommand) {
                     println!("{}", e);
                 }
             }
-
 
             _ => {}
         }
