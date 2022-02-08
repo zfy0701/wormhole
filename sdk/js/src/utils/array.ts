@@ -8,6 +8,7 @@ import {
   CHAIN_ID_ETHEREUM_ROPSTEN,
   CHAIN_ID_AVAX,
   CHAIN_ID_OASIS,
+  CHAIN_ID_FANTOM,
 } from "./consts";
 import { humanAddress, canonicalAddress, isNativeDenom } from "../terra";
 import { PublicKey } from "@solana/web3.js";
@@ -21,7 +22,8 @@ export const isEVMChain = (chainId: ChainId) => {
     chainId === CHAIN_ID_ETHEREUM_ROPSTEN ||
     chainId === CHAIN_ID_AVAX ||
     chainId === CHAIN_ID_POLYGON ||
-    chainId === CHAIN_ID_OASIS
+    chainId === CHAIN_ID_OASIS ||
+    chainId === CHAIN_ID_FANTOM
   );
 };
 
