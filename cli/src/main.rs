@@ -11,9 +11,12 @@
 use structopt::StructOpt;
 
 mod commands;
-mod error;
 mod guardians;
 mod networks;
+mod types;
+
+#[macro_use]
+mod error;
 
 use commands::network;
 use commands::vaa;
@@ -34,11 +37,11 @@ pub struct Options {
 /// arguments in the `Options` struct such as network.
 #[derive(Debug, StructOpt)]
 pub enum Command {
-    #[structopt(about = "Command for working with the NFT Bridge on all chains.")]
-    NFTBridge(token_bridge::TokenBridge),
-
     #[structopt(about = "Command for exploring the Wormhole network map.")]
     Network(network::Network),
+
+    #[structopt(about = "Command for working with the NFT Bridge on all chains.")]
+    NFTBridge(token_bridge::TokenBridge),
 
     #[structopt(about = "Command for working with the Token Bridge on all chains.")]
     TokenBridge(token_bridge::TokenBridge),
@@ -53,6 +56,7 @@ async fn main() {
     let network = match &*options.network {
         "m" => "mainnet",
         "t" => "testnet",
+        "d" => "devnet",
         _   => {
             println!("Unknown Network {}", options.network);
             return;

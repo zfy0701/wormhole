@@ -1,4 +1,7 @@
-use phf::{Map, phf_map};
+use phf::{
+    phf_map,
+    Map,
+};
 use wormhole_sdk::Chain;
 
 pub struct Network {
