@@ -1,5 +1,6 @@
 use crate::guardians;
 
+use borsh::BorshDeserialize;
 use colored::Colorize;
 use secp256k1::recovery::{
     RecoverableSignature,
@@ -15,6 +16,7 @@ use wormhole_sdk::vaa::{
     token,
     VAA,
 };
+use wormhole_sdk::PostVAAData;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Generic helpers for working with VAA objects.")]
@@ -28,8 +30,11 @@ pub struct Vaa {
 
 #[derive(Debug, StructOpt)]
 pub enum VaaCommand {
-    #[structopt(about = "Parse VAA and print in various readable formats")]
+    #[structopt(about = "Parse VAA and print in various readable formats.")]
     Dump { vaa: String },
+
+    #[structopt(about = "Similar to dump, but parses the PostVAAData format for Solana.")]
+    DumpPostMessage { vaa: String },
 }
 
 pub fn vaa(vaa: Vaa) {
@@ -43,6 +48,20 @@ pub fn vaa(vaa: Vaa) {
             render_vaa(&parsed, &decode, &digest.hash);
             render_digest(&parsed, &digest.digest);
             render_payload(&parsed.payload);
+        }
+
+        VaaCommand::DumpPostMessage { vaa } => {
+            // Parse VAA.
+            let decode: PostVAAData = BorshDeserialize::try_from_slice(&hex::decode(&vaa).unwrap()).unwrap();
+            println!("Version             | {}", decode.version);
+            println!("Guardian Set Index  | {}", decode.guardian_set_index);
+            println!("Timestamp           | {}", decode.timestamp);
+            println!("Nonce               | {}", decode.nonce);
+            println!("Emitter Chain       | {}", decode.emitter_chain);
+            println!("Emitter Address     | {}", hex::encode(decode.emitter_address));
+            println!("Sequence            | {}", decode.sequence);
+            println!("Consistency Level   | {}", decode.consistency_level);
+            render_payload(&decode.payload);
         }
     }
 }
