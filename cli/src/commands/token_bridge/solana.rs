@@ -3,16 +3,25 @@ use std::str::FromStr;
 
 use borsh::BorshDeserialize;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Keypair;
-use solana_sdk::signature::Signer;
+use solana_sdk::signature::{
+    Keypair,
+    Signer,
+};
 use structopt::StructOpt;
-use wormhole_sdk::Chain;
-use wormhole_sdk::PostVAAData;
-use wormhole_sdk::VAA;
-use wormhole_sdk::DeserializePayload;
-use crate::error::Result;
-use crate::error::CLIError;
+use wormhole_sdk::{
+    Chain,
+    DeserializePayload,
+    PostVAAData,
+    VAA,
+};
+
+use crate::error::{
+    CLIError,
+    Result,
+};
 use crate::networks;
+
+mod dump;
 
 #[derive(Debug, StructOpt)]
 pub enum SolanaCommand {
@@ -94,7 +103,7 @@ pub async fn process(network: &str, rpc: &str, command: SolanaCommand) {
     if let Some((_, network)) = networks::NETWORKS[network].get_entry("solana") {
         match command {
             SolanaCommand::Dump => {
-                if let Err(CLIError(e)) = dump(rpc, network.token_bridge).await {
+                if let Err(CLIError(e)) = dump::process(rpc, network.token_bridge).await {
                     println!("{}", e);
                 }
             }
@@ -115,7 +124,7 @@ pub async fn process(network: &str, rpc: &str, command: SolanaCommand) {
                 }
             }
 
-            SolanaCommand::CompleteTransfer { vaa, key, unwrap } => {
+            SolanaCommand::CompleteTransfer { vaa, key, unwrap: _ } => {
                 let vaa = &*hex::decode(vaa).unwrap();
                 if let Err(CLIError(e)) =
                     complete_transfer(rpc, network.token_bridge, vaa, key).await
