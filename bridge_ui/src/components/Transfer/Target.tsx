@@ -38,6 +38,7 @@ import SolanaCreateAssociatedAddress, {
 import SolanaTPSWarning from "../SolanaTPSWarning";
 import StepDescription from "../StepDescription";
 import RegisterNowButton from "./RegisterNowButton";
+import {TokenSelector} from "../TokenSelectors/TargetTokenSelector";
 
 const useStyles = makeStyles((theme) => ({
   transferField: {
@@ -130,6 +131,10 @@ function Target() {
         chains={chains}
       />
       <KeyAndBalance chainId={targetChain} />
+      <div className={classes.transferField}>
+        <TokenSelector disabled={shouldLockFields} />
+      </div>
+
       {readableTargetAddress ? (
         <>
           {targetAsset ? (
