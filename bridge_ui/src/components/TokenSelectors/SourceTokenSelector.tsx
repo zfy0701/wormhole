@@ -76,6 +76,12 @@ export const TokenSelector = (props: TokenSelectorProps) => {
   const maps = useGetSourceParsedTokens(nft);
   const resetAccountWrapper = maps?.resetAccounts || (() => {}); //This should never happen.
 
+  console.log("source info")
+  console.log(lookupChain)
+  console.log(sourceParsedTokenAccount)
+  console.log(sourceParsedTokenAccount?.publicKey)
+  console.log(maps)
+
   //This is only for errors so bad that we shouldn't even mount the component
   const fatalError =
     isEVMChain(lookupChain) &&

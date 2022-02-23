@@ -194,11 +194,11 @@ export default function SolanaSourceTokenSelector(
         //swallow for now
       }
 
-      if (v1 && !isMigrationEligible(newValue.mintKey)) {
-        throw Error(
-          "Wormhole v1 assets should not be transferred with this bridge."
-        );
-      }
+      // if (v1 && !isMigrationEligible(newValue.mintKey)) {
+      //   throw Error(
+      //     "Wormhole v1 assets should not be transferred with this bridge."
+      //   );
+      // }
 
       onChange(newValue);
       return Promise.resolve();

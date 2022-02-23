@@ -149,7 +149,7 @@ function Target() {
                   logo={logo}
                   variant="h6"
                 />
-                {`(Amount: ${transferAmount})`}
+                {`(Amount: ${transferAmount}) (to be fixed)`}
               </Typography>
             </div>
           ) : null}
