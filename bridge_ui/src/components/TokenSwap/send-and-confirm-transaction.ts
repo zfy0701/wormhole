@@ -1,4 +1,4 @@
-import {sendAndConfirmTransaction as realSendAndConfirmTransaction} from '@solana/web3.js';
+import {Commitment, sendAndConfirmTransaction as realSendAndConfirmTransaction} from '@solana/web3.js';
 import type {
     Account,
     Connection,
@@ -21,17 +21,23 @@ export function sendAndConfirmTransaction(
     });
 }
 
-export function sendAndConfirmTransaction2(
+export async function sendAndConfirmTransaction2(
     title: string,
     connection: Connection,
     transaction: Transaction,
-    signers: WalletContextState
+    wallet: WalletContextState
 ): Promise<TransactionSignature> {
-    return signSendAndConfirm(signers, connection, transaction);
+    if (!wallet.signTransaction) {
+        throw new Error("wallet.signTransaction is undefined");
+      }
+    wallet.signTransaction(transaction);
 
-    // return realSendAndConfirmTransaction(connection, transaction, signers, {
-    //     skipPreflight: false,
-    //     commitment: 'recent',
-    //     preflightCommitment: 'recent',
-    // });
+    const options = {
+        skipPreflight: false,
+        commitment: 'recent' as Commitment,
+        preflightCommitment: 'recent' as Commitment,
+    };
+    const wireTransaction = transaction.serialize();
+
+    return connection.sendRawTransaction(wireTransaction, options)
 }
