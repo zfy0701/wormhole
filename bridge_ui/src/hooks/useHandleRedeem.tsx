@@ -11,7 +11,7 @@ import {
   redeemOnTerra,
 } from "@certusone/wormhole-sdk";
 import { WalletContextState } from "@solana/wallet-adapter-react";
-import { Connection } from "@solana/web3.js";
+import {Account, Connection, PublicKey} from "@solana/web3.js";
 import {
   ConnectedWallet,
   useConnectedWallet,
@@ -41,6 +41,7 @@ import parseError from "../utils/parseError";
 import { signSendAndConfirm } from "../utils/solana";
 import { Alert } from "@material-ui/lab";
 import { postWithFees } from "../utils/terra";
+import {TOKEN_SWAP_PROGRAM_ID, TokenSwap} from "../components/TokenSwap";
 
 async function evm(
   dispatch: any,
@@ -69,6 +70,70 @@ async function evm(
     enqueueSnackbar(null, {
       content: <Alert severity="success">Transaction confirmed</Alert>,
     });
+  } catch (e) {
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
+    dispatch(setIsRedeeming(false));
+  }
+}
+
+async function solanaSwap(
+    dispatch: any,
+    enqueueSnackbar: any,
+    wallet: WalletContextState,
+    payerAddress: string, //TODO: we may not need this since we have wallet
+    signedVAA: Uint8Array,
+    isNative: boolean
+) {
+  dispatch(setIsRedeeming(true));
+  try {
+    if (!wallet.signTransaction) {
+      throw new Error("wallet.signTransaction is undefined");
+    }
+    const connection = new Connection(SOLANA_HOST, "confirmed");
+    
+    const tokenSwapPk = new PublicKey('Bf3FsVEN1JNgAq6JAuybgpPGmPxjXFsM6aMBMxhHEkSC');
+
+
+    // const fetchedTokenSwap = await TokenSwap.loadTokenSwap(
+    //     connection,
+    //     tokenSwapPk,
+    //     TOKEN_SWAP_PROGRAM_ID,
+    //     new Account("")
+    // );
+
+    //  -----------
+    // await postVaaSolanaWithRetry(
+    //     connection,
+    //     wallet.signTransaction,
+    //     SOL_BRIDGE_ADDRESS,
+    //     payerAddress,
+    //     Buffer.from(signedVAA),
+    //     MAX_VAA_UPLOAD_RETRIES_SOLANA
+    // );
+    // // TODO: how do we retry in between these steps
+    // const transaction = isNative
+    //     ? await redeemAndUnwrapOnSolana(
+    //         connection,
+    //         SOL_BRIDGE_ADDRESS,
+    //         SOL_TOKEN_BRIDGE_ADDRESS,
+    //         payerAddress,
+    //         signedVAA
+    //     )
+    //     : await redeemOnSolana(
+    //         connection,
+    //         SOL_BRIDGE_ADDRESS,
+    //         SOL_TOKEN_BRIDGE_ADDRESS,
+    //         payerAddress,
+    //         signedVAA
+    //     );
+    // const txid = await signSendAndConfirm(wallet, connection, transaction);
+    // // TODO: didn't want to make an info call we didn't need, can we get the block without it by modifying the above call?
+    // dispatch(setRedeemTx({ id: txid, block: 1 }));
+    // enqueueSnackbar(null, {
+    //   content: <Alert severity="success">Transaction confirmed</Alert>,
+    // });
   } catch (e) {
     enqueueSnackbar(null, {
       content: <Alert severity="error">{parseError(e)}</Alert>,
