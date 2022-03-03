@@ -177,6 +177,8 @@ export const selectTransferSourceParsedTokenAccount = (state: RootState) =>
   state.transfer.sourceParsedTokenAccount;
 export const selectTransferSourceParsedTokenAccounts = (state: RootState) =>
   state.transfer.sourceParsedTokenAccounts;
+export const selectTransferTargetParsedTokenAccounts = (state: RootState) =>
+    state.transfer.targetParsedTokenAccounts;
 export const selectTransferSourceBalanceString = (state: RootState) =>
   state.transfer.sourceParsedTokenAccount?.uiAmountString || "";
 export const selectTransferAmount = (state: RootState) => state.transfer.amount;
@@ -190,8 +192,12 @@ export const selectTransferTargetAsset = (state: RootState) =>
   state.transfer.targetAsset.data?.address;
 export const selectTransferTargetParsedTokenAccount = (state: RootState) =>
   state.transfer.targetParsedTokenAccount;
+export const selectTransferFinalParsedTokenAccount = (state: RootState) =>
+    state.transfer.finalParsedTokenAccount;
 export const selectTransferTargetBalanceString = (state: RootState) =>
   state.transfer.targetParsedTokenAccount?.uiAmountString || "";
+export const selectTransferFinalBalanceString = (state: RootState) =>
+    state.transfer.finalParsedTokenAccount?.uiAmountString || "";
 export const selectTransferTransferTx = (state: RootState) =>
   state.transfer.transferTx;
 export const selectTransferSignedVAAHex = (state: RootState) =>
@@ -202,6 +208,8 @@ export const selectTransferIsRedeeming = (state: RootState) =>
   state.transfer.isRedeeming;
 export const selectTransferRedeemTx = (state: RootState) =>
   state.transfer.redeemTx;
+export const selectTransferSwapTx = (state: RootState) =>
+    state.transfer.swapTx;
 export const selectTransferIsApproving = (state: RootState) =>
   state.transfer.isApproving;
 export const selectTransferSourceError = (

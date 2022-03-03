@@ -1,7 +1,7 @@
 import {
   ChainId,
   CHAIN_ID_ETH,
-  CHAIN_ID_SOLANA,
+  CHAIN_ID_SOLANA, CHAIN_ID_ETHEREUM_ROPSTEN,
 } from "@certusone/wormhole-sdk";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { StateSafeWormholeWrappedInfo } from "../hooks/useCheckIfWormholeWrapped";
@@ -45,39 +45,45 @@ export interface TransferState {
   sourceWalletAddress: string | undefined;
   sourceParsedTokenAccount: ParsedTokenAccount | undefined;
   sourceParsedTokenAccounts: DataWrapper<ParsedTokenAccount[]>;
+  targetParsedTokenAccounts: DataWrapper<ParsedTokenAccount[]>;
   amount: string;
   targetChain: ChainId;
   targetAddressHex: string | undefined;
   targetAsset: DataWrapper<ForeignAssetInfo>;
   targetParsedTokenAccount: ParsedTokenAccount | undefined;
+  finalParsedTokenAccount: ParsedTokenAccount | undefined;
   transferTx: Transaction | undefined;
   signedVAAHex: string | undefined;
   isSending: boolean;
   isRedeeming: boolean;
   redeemTx: Transaction | undefined;
+  swapTx: Transaction | undefined;
   isApproving: boolean;
   isRecovery: boolean;
 }
 
 const initialState: TransferState = {
   activeStep: 0,
-  sourceChain: CHAIN_ID_SOLANA,
+  sourceChain: CHAIN_ID_ETHEREUM_ROPSTEN,
   isSourceAssetWormholeWrapped: false,
   sourceWalletAddress: undefined,
   sourceParsedTokenAccount: undefined,
   sourceParsedTokenAccounts: getEmptyDataWrapper(),
+  targetParsedTokenAccounts: getEmptyDataWrapper(),
   originChain: undefined,
   originAsset: undefined,
   amount: "",
-  targetChain: CHAIN_ID_ETH,
+  targetChain: CHAIN_ID_SOLANA,
   targetAddressHex: undefined,
   targetAsset: getEmptyDataWrapper(),
   targetParsedTokenAccount: undefined,
+  finalParsedTokenAccount: undefined,
   transferTx: undefined,
   signedVAAHex: undefined,
   isSending: false,
   isRedeeming: false,
   redeemTx: undefined,
+  swapTx: undefined,
   isApproving: false,
   isRecovery: false,
 };
@@ -146,6 +152,14 @@ export const transferSlice = createSlice({
         ? receiveDataWrapper(action.payload)
         : getEmptyDataWrapper();
     },
+    setTargetParsedTokenAccounts: (
+        state,
+        action: PayloadAction<ParsedTokenAccount[] | undefined>
+    ) => {
+      state.targetParsedTokenAccounts = action.payload
+          ? receiveDataWrapper(action.payload)
+          : getEmptyDataWrapper();
+    },
     fetchSourceParsedTokenAccounts: (state) => {
       state.sourceParsedTokenAccounts = fetchDataWrapper();
     },
@@ -199,6 +213,12 @@ export const transferSlice = createSlice({
     ) => {
       state.targetParsedTokenAccount = action.payload;
     },
+    setFinalParsedTokenAccount: (
+        state,
+        action: PayloadAction<ParsedTokenAccount | undefined>
+    ) => {
+      state.finalParsedTokenAccount = action.payload;
+    },
     setTransferTx: (state, action: PayloadAction<Transaction>) => {
       state.transferTx = action.payload;
     },
@@ -216,6 +236,10 @@ export const transferSlice = createSlice({
     setRedeemTx: (state, action: PayloadAction<Transaction>) => {
       state.redeemTx = action.payload;
       state.isRedeeming = false;
+    },
+    setSwapTx: (state, action: PayloadAction<Transaction>) => {
+      state.swapTx = action.payload;
+      // state.isRedeeming = false;
     },
     setIsApproving: (state, action: PayloadAction<boolean>) => {
       state.isApproving = action.payload;
@@ -277,11 +301,14 @@ export const {
   setTargetAddressHex,
   setTargetAsset,
   setTargetParsedTokenAccount,
+    setTargetParsedTokenAccounts,
+  setFinalParsedTokenAccount,
   setTransferTx,
   setSignedVAAHex,
   setIsSending,
   setIsRedeeming,
   setRedeemTx,
+  setSwapTx,
   setIsApproving,
   reset,
   setRecoveryVaa,

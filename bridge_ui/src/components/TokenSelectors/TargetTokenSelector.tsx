@@ -15,13 +15,13 @@ import {
 } from "../../store/nftSlice";
 import {
   selectNFTSourceChain,
-  selectNFTSourceParsedTokenAccount,
+  selectNFTSourceParsedTokenAccount, selectTransferFinalParsedTokenAccount,
   selectTransferTargetChain,
-  selectTransferTargetParsedTokenAccount,
+  selectTransferTargetParsedTokenAccount, selectTransferTargetParsedTokenAccounts,
 } from "../../store/selectors";
 import {
   ParsedTokenAccount,
-  setTargetParsedTokenAccount as setTransferTargetParsedTokenAccount,
+  setFinalParsedTokenAccount as setTransferTargetParsedTokenAccount,
   setTargetAddressHex as setTransferTargetWalletAddress
 
 } from "../../store/transferSlice";
@@ -29,6 +29,7 @@ import EvmTokenPicker from "./EvmTokenPicker";
 import RefreshButtonWrapper from "./RefreshButtonWrapper";
 import SolanaTokenPicker from "./SolanaTokenPicker";
 import TerraTokenPicker from "./TerraTokenPicker";
+import keys from "../../keys/keys.json";
 
 type TokenSelectorProps = {
   disabled: boolean;
@@ -45,7 +46,7 @@ export const TokenSelector = (props: TokenSelectorProps) => {
   const targetParsedTokenAccount = useSelector(
     nft
       ? selectNFTSourceParsedTokenAccount
-      : selectTransferTargetParsedTokenAccount
+      : selectTransferFinalParsedTokenAccount
   );
 
   const walletIsReady = useIsWalletReady(lookupChain);
@@ -60,11 +61,11 @@ export const TokenSelector = (props: TokenSelectorProps) => {
   const handleOnChange = useCallback(
     (newTokenAccount: ParsedTokenAccount | null) => {
       if (!newTokenAccount) {
-        dispatch(setTargetParsedTokenAccount(undefined));
-        dispatch(setTargetWalletAddress(undefined));
+        // dispatch(setTargetParsedTokenAccount(undefined));
+        // dispatch(setTargetWalletAddress(undefined));
       } else if (newTokenAccount !== undefined && walletIsReady.walletAddress) {
         dispatch(setTargetParsedTokenAccount(newTokenAccount));
-        dispatch(setTargetWalletAddress(walletIsReady.walletAddress));
+        // dispatch(setTargetWalletAddress(walletIsReady.walletAddress));
       }
     },
     [
@@ -76,40 +77,15 @@ export const TokenSelector = (props: TokenSelectorProps) => {
   );
 
   // const maps = useGetSourceParsedTokens(nft);
-  // TODO change to load dynmaically
-  const maps =  {
-    "resetAccounts": undefined,
-    "tokenAccounts": {
-    "data": [
-      {
-        "publicKey": "EPtKAhdDCh6ueSkUYtgLzgQWasykQm5HhoZQhSHL3XdV",
-        "mintKey": "So11111111111111111111111111111111111111112",
-        "amount": "3476309260",
-        "decimals": 9,
-        "uiAmount": 3.47630926,
-        "uiAmountString": "3.47630926",
-        "symbol": "SOL",
-        "name": "Solana",
-        "isNativeAsset": true
-      },
-      {
-        "publicKey": "93nfxv3JSkZmEHSD8vGN1Ao5wFUVLETocxtRrGcmcZST",
-        "mintKey": "5GYUUQwZzPKK3Thwn5jpbTBPX6cgBTPYzN1Q9EvXWkBq",
-        "amount": "11000000",
-        "decimals": 8,
-        "uiAmount": 0.11,
-        "uiAmountString": "0.11"
-      }
-    ],
-        "error": null,
-        "isFetching": false,
-        "receivedAt": "2022-02-20T22:12:08.853Z"
-  },
-    "mintAccounts": {
-    "data": {},
-    "isFetching": false,
-        "receivedAt": null
-   }
+  const tokenAccounts = useSelector(selectTransferTargetParsedTokenAccounts)
+  const maps = {
+    resetAccounts: undefined,
+    tokenAccounts: tokenAccounts,
+    mintAccounts: {
+      data: {},
+      isFetching: false,
+      receivedAt: null
+    }
   }
 
   const resetAccountWrapper = maps?.resetAccounts || (() => {}); //This should never happen.

@@ -2,8 +2,8 @@ import { makeStyles, Typography } from "@material-ui/core";
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  selectTransferRedeemTx,
-  selectTransferTargetChain,
+    selectTransferRedeemTx, selectTransferSwapTx,
+    selectTransferTargetChain,
 } from "../../store/selectors";
 import { reset } from "../../store/transferSlice";
 import ButtonWithLoader from "../ButtonWithLoader";
@@ -22,7 +22,9 @@ export default function RedeemPreview() {
   const dispatch = useDispatch();
   const targetChain = useSelector(selectTransferTargetChain);
   const redeemTx = useSelector(selectTransferRedeemTx);
-  const handleResetClick = useCallback(() => {
+  const swapTx = useSelector(selectTransferSwapTx);
+
+    const handleResetClick = useCallback(() => {
     dispatch(reset());
   }, [dispatch]);
 
@@ -38,7 +40,12 @@ export default function RedeemPreview() {
       >
         {explainerString}
       </Typography>
-      {redeemTx ? <ShowTx chainId={targetChain} tx={redeemTx} /> : null}
+        <>
+            {redeemTx ? <ShowTx chainId={targetChain} tx={redeemTx} /> : null}
+        </>
+        <>
+            {swapTx ? <ShowTx chainId={targetChain} tx={swapTx} /> : null}
+        </>
       <AddToMetamask />
       <FeaturedMarkets />
       <ButtonWithLoader onClick={handleResetClick}>

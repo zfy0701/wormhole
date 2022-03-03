@@ -2,9 +2,9 @@ import {
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   isEVMChain,
-  TokenImplementation__factory,
+  TokenImplementation__factory, WSOL_ADDRESS, WSOL_DECIMALS,
 } from "@certusone/wormhole-sdk";
-import { Connection, PublicKey } from "@solana/web3.js";
+import {AccountInfo, Connection, ParsedAccountData, PublicKey} from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
 import { useConnectedWallet } from "@terra-money/wallet-provider";
 import { formatUnits } from "ethers/lib/utils";
@@ -16,10 +16,12 @@ import {
   selectTransferTargetAsset,
   selectTransferTargetChain,
 } from "../store/selectors";
-import { setTargetParsedTokenAccount } from "../store/transferSlice";
+import {ParsedTokenAccount, setTargetParsedTokenAccount, setTargetParsedTokenAccounts} from "../store/transferSlice";
 import { getEvmChainId, SOLANA_HOST, TERRA_HOST } from "../utils/consts";
 import { createParsedTokenAccount } from "./useGetSourceParsedTokenAccounts";
 import useMetadata from "./useMetadata";
+import {TOKEN_PROGRAM_ID} from "@solana/spl-token";
+import {getMultipleAccountsRPC} from "../utils/solana";
 
 function useGetTargetParsedTokenAccounts() {
   const dispatch = useDispatch();
@@ -96,6 +98,27 @@ function useGetTargetParsedTokenAccounts() {
         return;
       }
       const connection = new Connection(SOLANA_HOST, "confirmed");
+
+       createNativeSolParsedTokenAccount(
+          connection,
+          solPK.toString()
+      ).then( (native) => {
+         connection
+             .getParsedTokenAccountsByOwner(solPK, { programId: TOKEN_PROGRAM_ID, })
+             .then(({ value }) => {
+               let tokenAccounts: ParsedTokenAccount[] = value.map((item) =>
+                   createParsedTokenAccountFromInfo(item.pubkey, item.account)
+               );
+               if (native) {
+                 tokenAccounts.unshift(native)
+               }
+               dispatch(setTargetParsedTokenAccounts(tokenAccounts));
+             });
+           }
+       );
+
+
+
       connection
         .getParsedTokenAccountsByOwner(solPK, { mint })
         .then(({ value }) => {
@@ -184,5 +207,44 @@ function useGetTargetParsedTokenAccounts() {
     logo,
   ]);
 }
+
+const createParsedTokenAccountFromInfo = (
+    pubkey: PublicKey,
+    item: AccountInfo<ParsedAccountData>
+): ParsedTokenAccount => {
+  return {
+    publicKey: pubkey?.toString(),
+    mintKey: item.data.parsed?.info?.mint?.toString(),
+    amount: item.data.parsed?.info?.tokenAmount?.amount,
+    decimals: item.data.parsed?.info?.tokenAmount?.decimals,
+    uiAmount: item.data.parsed?.info?.tokenAmount?.uiAmount,
+    uiAmountString: item.data.parsed?.info?.tokenAmount?.uiAmountString,
+  };
+};
+const createNativeSolParsedTokenAccount = async (
+    connection: Connection,
+    walletAddress: string
+) => {
+  // const walletAddress = "H69q3Q8E74xm7swmMQpsJLVp2Q9JuBwBbxraAMX5Drzm" // known solana mainnet wallet with tokens
+  const fetchAccounts = await getMultipleAccountsRPC(connection, [
+    new PublicKey(walletAddress),
+  ]);
+  if (!fetchAccounts || !fetchAccounts.length || !fetchAccounts[0]) {
+    return null;
+  } else {
+    return createParsedTokenAccount(
+        walletAddress, //publicKey
+        WSOL_ADDRESS, //Mint key
+        fetchAccounts[0].lamports.toString(), //amount
+        WSOL_DECIMALS, //decimals, 9
+        parseFloat(formatUnits(fetchAccounts[0].lamports, WSOL_DECIMALS)),
+        formatUnits(fetchAccounts[0].lamports, WSOL_DECIMALS).toString(),
+        "SOL",
+        "Solana",
+        undefined, //TODO logo. It's in the solana token map, so we could potentially use that URL.
+        true
+    );
+  }
+};
 
 export default useGetTargetParsedTokenAccounts;

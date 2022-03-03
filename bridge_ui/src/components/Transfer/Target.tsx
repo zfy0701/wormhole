@@ -1,8 +1,8 @@
 import {
-  CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
-  hexToNativeString,
-  isEVMChain,
+    CHAIN_ID_SOLANA,
+    CHAIN_ID_TERRA,
+    hexToNativeString,
+    isEVMChain, uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import { makeStyles, Typography } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
@@ -13,17 +13,17 @@ import useIsWalletReady from "../../hooks/useIsWalletReady";
 import useSyncTargetAddress from "../../hooks/useSyncTargetAddress";
 import { GasEstimateSummary } from "../../hooks/useTransactionFees";
 import {
-  selectTransferAmount,
-  selectTransferIsTargetComplete,
-  selectTransferShouldLockFields,
-  selectTransferSourceChain,
-  selectTransferTargetAddressHex,
-  selectTransferTargetAsset,
-  selectTransferTargetAssetWrapper,
-  selectTransferTargetBalanceString,
-  selectTransferTargetChain,
-  selectTransferTargetError,
-  selectTransferTargetParsedTokenAccount,
+    selectTransferAmount, selectTransferFinalBalanceString, selectTransferFinalParsedTokenAccount,
+    selectTransferIsTargetComplete,
+    selectTransferShouldLockFields,
+    selectTransferSourceChain,
+    selectTransferTargetAddressHex,
+    selectTransferTargetAsset,
+    selectTransferTargetAssetWrapper,
+    selectTransferTargetBalanceString,
+    selectTransferTargetChain,
+    selectTransferTargetError,
+    selectTransferTargetParsedTokenAccount,
 } from "../../store/selectors";
 import { incrementStep, setTargetChain } from "../../store/transferSlice";
 import { CHAINS, CHAINS_BY_ID } from "../../utils/consts";
@@ -39,6 +39,8 @@ import SolanaTPSWarning from "../SolanaTPSWarning";
 import StepDescription from "../StepDescription";
 import RegisterNowButton from "./RegisterNowButton";
 import {TokenSelector} from "../TokenSelectors/TargetTokenSelector";
+import {arrayify, zeroPad} from "@ethersproject/bytes";
+import {base58} from "ethers/lib.esm/utils";
 
 const useStyles = makeStyles((theme) => ({
   transferField: {
@@ -52,11 +54,22 @@ const useStyles = makeStyles((theme) => ({
 
 export const useTargetInfo = () => {
   const targetChain = useSelector(selectTransferTargetChain);
-  const targetAddressHex = useSelector(selectTransferTargetAddressHex);
-  const targetAsset = useSelector(selectTransferTargetAsset);
-  const targetParsedTokenAccount = useSelector(
-    selectTransferTargetParsedTokenAccount
-  );
+  var targetAddressHex = useSelector(selectTransferTargetAddressHex);
+  var targetAsset = useSelector(selectTransferTargetAsset);
+  var targetParsedTokenAccount = useSelector(
+        selectTransferTargetParsedTokenAccount
+    );
+  const finalTokenAccount = useSelector(
+        selectTransferFinalParsedTokenAccount
+    );
+
+  if (finalTokenAccount) {
+      targetParsedTokenAccount = finalTokenAccount;
+      targetAsset = finalTokenAccount.mintKey;
+      targetAddressHex = uint8ArrayToHex(base58.decode(finalTokenAccount.publicKey))
+  }
+  // console.log("target address hex", targetAddressHex);
+
   const tokenName = targetParsedTokenAccount?.name;
   const symbol = targetParsedTokenAccount?.symbol;
   const logo = targetParsedTokenAccount?.logo;
@@ -95,7 +108,9 @@ function Target() {
     logo,
     readableTargetAddress,
   } = useTargetInfo();
-  const uiAmountString = useSelector(selectTransferTargetBalanceString);
+
+  // console.log("target address", readableTargetAddress)
+  const uiAmountString = useSelector(selectTransferFinalBalanceString);
   const transferAmount = useSelector(selectTransferAmount);
   const error = useSelector(selectTransferTargetError);
   const isTargetComplete = useSelector(selectTransferIsTargetComplete);
