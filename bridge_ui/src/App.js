@@ -232,7 +232,7 @@ function App() {
         <div className={classes.headerImage} />
         {["/transfer", "/nft", "/redeem"].includes(pathname) ? (
           <Container maxWidth="md" style={{ paddingBottom: 24 }}>
-            <HeaderText white>Portal Token Bridge</HeaderText>
+            <HeaderText white>Portal Token Swap</HeaderText>
             <Tabs
               value={pathname}
               variant="fullWidth"

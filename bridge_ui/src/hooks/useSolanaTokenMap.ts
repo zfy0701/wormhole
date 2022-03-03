@@ -10,6 +10,8 @@ import {
   receiveSolanaTokenMap,
 } from "../store/tokenSlice";
 import { CLUSTER } from "../utils/consts";
+import {TokenExtensions} from "@solana/spl-token-registry/src/lib/tokenlist";
+import {CHAIN_ID_SOLANA} from "@certusone/wormhole-sdk";
 
 const environment = CLUSTER === "testnet" ? ENV.Testnet : ENV.MainnetBeta;
 
@@ -34,7 +36,31 @@ const getSolanaTokenMap = (dispatch: Dispatch) => {
 
   new TokenListProvider().resolve().then(
     (tokens) => {
-      const tokenList = tokens.filterByChainId(environment).getList();
+      var tokenList = tokens.filterByChainId(environment).getList();
+      var i =  {
+        chainId: CHAIN_ID_SOLANA,
+        address: "52Y4nFRc8cH6YsKWwcYRj3HjApyU9EKGdwJGR9HdFXBJ",
+        name: "Music",
+        decimals: 10,
+        symbol: "MUL"
+        // readonly logoURI?: string;
+        // readonly tags?: string[];
+        // readonly extensions?: TokenExtensions;
+      }
+      tokenList.push(i)
+
+      i =  {
+        chainId: CHAIN_ID_SOLANA,
+        address: "5GYUUQwZzPKK3Thwn5jpbTBPX6cgBTPYzN1Q9EvXWkBq",
+        name: "WETH",
+        decimals: 10,
+        symbol: "WETH"
+        // readonly logoURI?: string;
+        // readonly tags?: string[];
+        // readonly extensions?: TokenExtensions;
+      }
+      tokenList.push(i)
+
       dispatch(receiveSolanaTokenMap(tokenList));
     },
     (error) => {

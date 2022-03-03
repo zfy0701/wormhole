@@ -11,6 +11,7 @@ import {
   receiveMarketsMap,
 } from "../store/tokenSlice";
 import { FEATURED_MARKETS_JSON_URL } from "../utils/consts";
+import {CHAIN_ID_SOLANA} from "@certusone/wormhole-sdk/lib/cjs/utils/consts";
 
 export type MarketsMap = {
   markets?: {
