@@ -171,8 +171,9 @@ async function solanaSwap(
     const userAccountB = await mintB.getOrCreateAssociatedAccountInfo(swapperPk);
     const poolAccount =  await tokenPool.createAccount(owner.publicKey);
 
-    const tokenAccountA = fetchedTokenSwap.tokenAccountB;
-    const tokenAccountB = fetchedTokenSwap.tokenAccountA;
+    const tokenAccountA = fetchedTokenSwap.tokenAccountA;
+    const tokenAccountB = fetchedTokenSwap.tokenAccountB;
+
 
     let info;
     info = await mintA.getAccountInfo(userAccountA.address);
@@ -330,6 +331,7 @@ export function useHandleRedeem() {
   const targetAssets = targetTokenAccount != null ? targetTokenAccount.mintKey : "52Y4nFRc8cH6YsKWwcYRj3HjApyU9EKGdwJGR9HdFXBJ"
   // @ts-ignore
   var amount = useSelector(selectTransferAmount) as number
+  amount = amount * 100000000
 
   console.log("target assets: " + targetAssets + " amount " + amount)
 

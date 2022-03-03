@@ -1,12 +1,6 @@
+import type {Account, Connection, Transaction, TransactionSignature,} from '@solana/web3.js';
 import {Commitment, sendAndConfirmTransaction as realSendAndConfirmTransaction} from '@solana/web3.js';
-import type {
-    Account,
-    Connection,
-    Transaction,
-    TransactionSignature,
-} from '@solana/web3.js';
 import {WalletContextState} from "@solana/wallet-adapter-react";
-import {signSendAndConfirm} from "../../utils/solana";
 
 export function sendAndConfirmTransaction(
     title: string,
@@ -30,6 +24,9 @@ export async function sendAndConfirmTransaction2(
     if (!wallet.signTransaction) {
         throw new Error("wallet.signTransaction is undefined");
       }
+    transaction.recentBlockhash = (await connection.getRecentBlockhash('finalized')).blockhash;
+    transaction.feePayer = wallet.publicKey!
+
     await wallet.signTransaction(transaction);
 
     const options = {

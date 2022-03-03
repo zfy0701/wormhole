@@ -41,7 +41,7 @@ const getSolanaTokenMap = (dispatch: Dispatch) => {
         chainId: CHAIN_ID_SOLANA,
         address: "52Y4nFRc8cH6YsKWwcYRj3HjApyU9EKGdwJGR9HdFXBJ",
         name: "Music",
-        decimals: 10,
+        decimals: 9,
         symbol: "MUL"
         // readonly logoURI?: string;
         // readonly tags?: string[];
@@ -53,7 +53,7 @@ const getSolanaTokenMap = (dispatch: Dispatch) => {
         chainId: CHAIN_ID_SOLANA,
         address: "5GYUUQwZzPKK3Thwn5jpbTBPX6cgBTPYzN1Q9EvXWkBq",
         name: "WETH",
-        decimals: 10,
+        decimals: 9,
         symbol: "WETH"
         // readonly logoURI?: string;
         // readonly tags?: string[];
