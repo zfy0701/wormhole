@@ -124,7 +124,7 @@ async function solanaSwap(
     const owner = await readAccountWithLamports2(connection, keypair.kan,0);
 
     // const swapper = await readAccountWithLamports(connection, '../keys/id.json',0);
-    const swapperPk = wallet.publicKey!;
+    const swapperPk = new PublicKey(wallet.publicKey!);
 
     const tokenPool = new Token(connection, fetchedTokenSwap.poolToken, TOKEN_PROGRAM_ID, payer);
 
