@@ -29,7 +29,7 @@ export default function RedeemPreview() {
   }, [dispatch]);
 
   const explainerString =
-    "Success! The redeem transaction was submitted. The tokens will become available once the transaction confirms.";
+    "Success! The redeem and swap transaction was submitted. The tokens will become available once the transaction confirms.";
 
   return (
     <>
