@@ -147,7 +147,7 @@ async function solanaSwap(
         connection,
         new Transaction().add(
             Token.createApproveInstruction(
-                TOKEN_SWAP_PROGRAM_ID,
+                TOKEN_PROGRAM_ID,
                 userAccountA.address,
                 userTransferAuthority.publicKey,
                 swapperPk,
