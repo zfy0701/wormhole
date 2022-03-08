@@ -40,7 +40,7 @@ import TokenOriginVerifier from "./components/TokenOriginVerifier";
 import Transfer from "./components/Transfer";
 import WithdrawTokensTerra from "./components/WithdrawTokensTerra";
 import { useBetaContext } from "./contexts/BetaContext";
-import Portal from "./icons/portal_logo.svg";
+import Portal from "./icons/portalswap_logo.svg";
 import Header from "./images/Header.png";
 import { CLUSTER } from "./utils/consts";
 
@@ -159,7 +159,7 @@ function App() {
             <img src={Portal} alt="Portal" className={classes.wormholeIcon} />
           </Link>
           <div className={classes.spacer} />
-          <Hidden implementation="css" xsDown>
+          {/* <Hidden implementation="css" xsDown>
             <div style={{ display: "flex", alignItems: "center" }}>
               <Link
                 component={NavLink}
@@ -197,7 +197,7 @@ function App() {
                 Wormhole
               </Link>
             </div>
-          </Hidden>
+          </Hidden> */}
           <Hidden implementation="css" smUp>
             <Tooltip title="View the FAQ">
               <IconButton
@@ -229,7 +229,7 @@ function App() {
         </AppBar>
       ) : null}
       <div className={classes.content}>
-        <div className={classes.headerImage} />
+        {/* <div className={classes.headerImage} /> */}
         {["/transfer", "/nft", "/redeem"].includes(pathname) ? (
           <Container maxWidth="md" style={{ paddingBottom: 24 }}>
             <HeaderText white>Portal Token Swap</HeaderText>
@@ -294,7 +294,7 @@ function App() {
         </Switch>
       </div>
       <div className={classes.spacer} />
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }
