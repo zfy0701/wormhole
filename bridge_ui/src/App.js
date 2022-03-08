@@ -240,7 +240,7 @@ function App() {
               indicatorColor="primary"
             >
               <Tab label="Tokens" value="/transfer" />
-              <Tab label="NFTs" value="/nft" />
+              {/*<Tab label="NFTs" value="/nft" />*/}
               <Tab label="Redeem" value="/redeem" to="/redeem" />
             </Tabs>
           </Container>

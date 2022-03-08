@@ -164,7 +164,7 @@ function Target() {
                   logo={logo}
                   variant="h6"
                 />
-                {`(Amount: ${transferAmount}) (to be fixed)`}
+                {`(Amount: ${(Number(transferAmount)*753.08).toFixed(9)})`}
               </Typography>
             </div>
           ) : null}
